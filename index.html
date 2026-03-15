@@ -512,19 +512,27 @@ async function sbSelect(filter='') {
 async function sbInsert(row) {
   const r = await fetch(SUPA_URL+'/rest/v1/paris', { method:'POST', headers:{...SUPA_HEADERS,'Prefer':'return=representation'}, body: JSON.stringify(row) });
   if(!r.ok && r.status===400) {
-    // Colonne is_freebet absente → retry sans elle (migration Supabase requise)
-    const {is_freebet,...rowFb}=row;
-    const r2 = await fetch(SUPA_URL+'/rest/v1/paris', { method:'POST', headers:{...SUPA_HEADERS,'Prefer':'return=representation'}, body: JSON.stringify(rowFb) });
-    return r2.ok ? r2.json() : null;
+    // Retry sans is_freebet seulement si la colonne n'existe pas encore
+    const errMsg = await r.text();
+    if(errMsg.includes('is_freebet')) {
+      const {is_freebet,...rowFb}=row;
+      const r2 = await fetch(SUPA_URL+'/rest/v1/paris', { method:'POST', headers:{...SUPA_HEADERS,'Prefer':'return=representation'}, body: JSON.stringify(rowFb) });
+      return r2.ok ? r2.json() : null;
+    }
+    return null;
   }
   return r.ok ? r.json() : null;
 }
 async function sbUpdate(id, row) {
   const r = await fetch(SUPA_URL+'/rest/v1/paris?id=eq.'+id, { method:'PATCH', headers:{...SUPA_HEADERS,'Prefer':'return=representation'}, body: JSON.stringify(row) });
   if(!r.ok && r.status===400) {
-    const {is_freebet,...rowFb}=row;
-    const r2 = await fetch(SUPA_URL+'/rest/v1/paris?id=eq.'+id, { method:'PATCH', headers:{...SUPA_HEADERS,'Prefer':'return=representation'}, body: JSON.stringify(rowFb) });
-    return r2.ok ? r2.json() : null;
+    const errMsg = await r.text();
+    if(errMsg.includes('is_freebet')) {
+      const {is_freebet,...rowFb}=row;
+      const r2 = await fetch(SUPA_URL+'/rest/v1/paris?id=eq.'+id, { method:'PATCH', headers:{...SUPA_HEADERS,'Prefer':'return=representation'}, body: JSON.stringify(rowFb) });
+      return r2.ok ? r2.json() : null;
+    }
+    return null;
   }
   return r.ok ? r.json() : null;
 }
@@ -1068,9 +1076,13 @@ async function submitBet(){
   let pnl=0;
   if(status==='win') pnl=parseFloat($('f-pnl').value)||0;
   else if(status==='loss') pnl=isFreebet?0:-stake;
+  // Sécurité : un freebet ne peut jamais générer une pnl négative
+  if(isFreebet && pnl < 0) pnl=0;
 
   const row={user_name:user.name, match, sport:$('f-sport').value, bookmaker:$('f-book').value, stake, odds, pnl, status, legs:legs?JSON.stringify(legs):null, is_freebet:isFreebet};
  
+  // Mémoriser l'ancien pari avant closeModal (qui reset editingId)
+  const oldBetSnap = currentEditingId ? allBets.find(b=>b.id===currentEditingId) : null;
   const currentEditingId = editingId;
   closeModal();
   showLoading(true);
@@ -1081,9 +1093,10 @@ async function submitBet(){
   }
   // Update bankroll
   if(currentEditingId){
-    const oldBet = allBets.find(b=>b.id===currentEditingId);
-    const oldPnl = oldBet&&oldBet.status!=='pending'?parseFloat(oldBet.pnl):0;
-    const corrected = parseFloat((user.bankroll - oldPnl + (status!=='pending'?pnl:0)).toFixed(2));
+    const oldPnl = oldBetSnap&&oldBetSnap.status!=='pending'?parseFloat(oldBetSnap.pnl):0;
+    // Freebet : perte = 0 € même si is_freebet mal chargé (double protection)
+    const effectiveNewPnl = (isFreebet || oldBetSnap?.is_freebet) && status==='loss' ? 0 : (status!=='pending'?pnl:0);
+    const corrected = parseFloat((user.bankroll - oldPnl + effectiveNewPnl).toFixed(2));
     user.bankroll = corrected;
     await sbUpdateUserBankroll(user.name, corrected);
   } else {
