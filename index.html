@@ -133,6 +133,17 @@ tr:hover td { background:var(--bg3); }
 .bc { background:rgba(56,189,248,.12); color:var(--blue); }
 .sbadge { background:var(--bg4); color:var(--text2); font-size:11px; padding:2px 8px; border-radius:20px; }
 .combo-badge { background:rgba(124,107,255,.12); color:var(--accent); font-size:11px; padding:2px 8px; border-radius:20px; margin-left:4px; }
+.fb-badge { background:rgba(255,184,77,.15); color:var(--amber); font-size:10px; padding:2px 7px; border-radius:20px; font-weight:700; margin-left:4px; letter-spacing:0.3px; vertical-align:middle; }
+.freebet-row { display:flex; align-items:center; gap:10px; padding:10px 13px; background:var(--bg3); border:1px solid var(--border2); border-radius:8px; cursor:pointer; user-select:none; transition:border-color .15s; }
+.freebet-row:hover { border-color:var(--amber); }
+.freebet-row.active { border-color:var(--amber); background:rgba(255,184,77,.06); }
+.toggle-track { width:36px; height:20px; background:var(--bg4); border-radius:10px; position:relative; transition:background .2s; flex-shrink:0; border:1px solid var(--border2); }
+.toggle-track.on { background:var(--amber); border-color:var(--amber); }
+.toggle-thumb { position:absolute; top:2px; left:2px; width:14px; height:14px; background:#fff; border-radius:50%; transition:transform .2s; box-shadow:0 1px 3px rgba(0,0,0,.3); }
+.toggle-track.on .toggle-thumb { transform:translateX(16px); }
+.freebet-text { font-size:13px; color:var(--text2); line-height:1.3; }
+.freebet-text strong { color:var(--amber); }
+.mc-fb::before { background:var(--amber); }
 .empty { text-align:center; padding:3.5rem 2rem; }
 .empty-ico { font-size:40px; opacity:.3; margin-bottom:1rem; }
 .empty-t { font-size:15px; color:var(--text2); font-weight:500; }
@@ -312,6 +323,7 @@ code { background:var(--bg4); padding:1px 6px; border-radius:4px; font-size:12px
         <div class="mc"><div class="mc-label">Taux réussite</div><div class="mc-val" id="mv-rate">—</div></div>
         <div class="mc a"><div class="mc-label">ROI</div><div class="mc-val" id="mv-roi">—</div></div>
         <div class="mc b"><div class="mc-label">Total misé</div><div class="mc-val" id="mv-staked">—</div></div>
+        <div class="mc mc-fb"><div class="mc-label">Freebets 🎁</div><div class="mc-val" id="mv-fb-gain" style="color:var(--amber)">—</div><div class="mc-sub" id="mv-fb-count"></div></div>
       </div>
  
       <!-- Insights : streak + meilleure/pire période -->
@@ -439,6 +451,13 @@ code { background:var(--bg4); padding:1px 6px; border-radius:4px; font-size:12px
         <label for="f-stake">Mise (€) *</label>
         <input type="number" id="f-stake" placeholder="10" min="0" step="0.5" oninput="autoCalcGain()">
       </div>
+      <div class="full">
+        <label style="margin-bottom:6px">Type de mise</label>
+        <div class="freebet-row" id="fb-toggle-wrap" onclick="toggleFreebet()">
+          <div class="toggle-track" id="fb-track"><div class="toggle-thumb"></div></div>
+          <div class="freebet-text">Freebet 🎁 — <strong>mise offerte</strong>, perte = 0 €, gain = (cote − 1) × mise</div>
+        </div>
+      </div>
       <div id="field-odds-simple">
         <label for="f-odds">Cote</label>
         <input type="number" id="f-odds" placeholder="1.85" min="1" step="0.01" oninput="autoCalcGain()">
@@ -491,10 +510,21 @@ async function sbSelect(filter='') {
 }
 async function sbInsert(row) {
   const r = await fetch(SUPA_URL+'/rest/v1/paris', { method:'POST', headers:{...SUPA_HEADERS,'Prefer':'return=representation'}, body: JSON.stringify(row) });
+  if(!r.ok && r.status===400) {
+    // Colonne is_freebet absente → retry sans elle (migration Supabase requise)
+    const {is_freebet,...rowFb}=row;
+    const r2 = await fetch(SUPA_URL+'/rest/v1/paris', { method:'POST', headers:{...SUPA_HEADERS,'Prefer':'return=representation'}, body: JSON.stringify(rowFb) });
+    return r2.ok ? r2.json() : null;
+  }
   return r.ok ? r.json() : null;
 }
 async function sbUpdate(id, row) {
   const r = await fetch(SUPA_URL+'/rest/v1/paris?id=eq.'+id, { method:'PATCH', headers:{...SUPA_HEADERS,'Prefer':'return=representation'}, body: JSON.stringify(row) });
+  if(!r.ok && r.status===400) {
+    const {is_freebet,...rowFb}=row;
+    const r2 = await fetch(SUPA_URL+'/rest/v1/paris?id=eq.'+id, { method:'PATCH', headers:{...SUPA_HEADERS,'Prefer':'return=representation'}, body: JSON.stringify(rowFb) });
+    return r2.ok ? r2.json() : null;
+  }
   return r.ok ? r.json() : null;
 }
 async function sbDelete(id) {
@@ -547,6 +577,7 @@ const fmtD = iso => iso ? new Date(iso).toLocaleDateString('fr-FR') : '—';
  
 let user=null, activeFilter='Tous', chart=null, editingId=null, betType='simple';
 let sortCol='date', sortDir='desc', searchQ='', confirmCb=null;
+let isFreebet=false;
 let allBets = []; // cache local
  
 // ── STATS ──────────────────────────────────────────────────────
@@ -556,9 +587,13 @@ function computeStats(bets) {
   const losses = bets.filter(b=>b.status==='loss').length;
   const pnl = closed.reduce((a,b)=>a+b.pnl,0);
   const staked = bets.reduce((a,b)=>a+b.stake,0);
+  // Freebet stats
+  const freebets = bets.filter(b=>b.is_freebet);
+  const fbGain = freebets.filter(b=>b.status==='win').reduce((a,b)=>a+b.pnl,0);
   return { wins, losses, pnl, staked, total:bets.length,
     rate: closed.length?((wins/closed.length)*100).toFixed(1):null,
-    roi: staked>0?((pnl/staked)*100).toFixed(1):null };
+    roi: staked>0?((pnl/staked)*100).toFixed(1):null,
+    fbCount: freebets.length, fbGain };
 }
  
 function computeInsights(bets) {
@@ -747,6 +782,8 @@ function renderDash(){
   $('mv-roi').className='mc-val '+(parseFloat(s.roi)>=0?'pos':'neg');
   $('mv-roi').textContent=s.roi?s.roi+'%':'—';
   $('mv-staked').textContent=s.staked.toFixed(0)+' €';
+  $('mv-fb-gain').textContent=s.fbCount>0?fmt(s.fbGain):'—';
+  $('mv-fb-count').textContent=s.fbCount>0?s.fbCount+' freebet'+(s.fbCount>1?'s':'')+' joué'+(s.fbCount>1?'s':''):'';
  
   // Insights
   renderInsights(bets);
@@ -865,9 +902,10 @@ function renderTable(){
     const bt=bet.status==='win'?'✓ Gagné':bet.status==='loss'?'✗ Perdu':'⏳ En cours';
     const legs=bet.legs?(typeof bet.legs==='string'?JSON.parse(bet.legs):bet.legs):null;
       const isCombi=legs&&legs.length>0;
+    const fbBadge=bet.is_freebet?'<span class="fb-badge">FB</span>':'';
     const matchCell=isCombi
-      ?`<div>${esc(bet.match)}<span class="combo-badge">Combiné ${legs.length} sél.</span></div><div class="td-legs">${legs.map(l=>esc(l.match)).join(' · ')}</div>`
-      :esc(bet.match);
+      ?`<div>${esc(bet.match)}<span class="combo-badge">Combiné ${legs.length} sél.</span>${fbBadge}</div><div class="td-legs">${legs.map(l=>esc(l.match)).join(' · ')}</div>`
+      :`${esc(bet.match)}${fbBadge}`;
     const oddsVal=isCombi?(legs.reduce((a,l)=>a*(l.odds||1),1)).toFixed(2):bet.odds?bet.odds.toFixed(2):'—';
     tr.innerHTML=`
       <td class="td-match">${matchCell}</td>
@@ -889,6 +927,18 @@ function renderTable(){
 }
  
 // ── MODAL ──────────────────────────────────────────────────────
+function toggleFreebet(){
+  isFreebet=!isFreebet;
+  $('fb-track').classList.toggle('on',isFreebet);
+  $('fb-toggle-wrap').classList.toggle('active',isFreebet);
+}
+
+function setFreebet(val){
+  isFreebet=!!val;
+  $('fb-track').classList.toggle('on',isFreebet);
+  $('fb-toggle-wrap').classList.toggle('active',isFreebet);
+}
+
 function setType(t){
   betType=t;
   $('type-simple').classList.toggle('active',t==='simple');
@@ -949,6 +999,7 @@ function openModal(bet){
   $('f-book').value=bet?bet.bookmaker:'Winamax';
   $('f-stake').value=bet?bet.stake:'';
   $('f-status').value=bet?bet.status:'win';
+  setFreebet(bet?bet.is_freebet:false);
   // For win: pnl stored is the gain; for loss: pnl=-stake, we don't show the field
   $('f-pnl').value=(bet&&bet.status==='win')?parseFloat(bet.pnl):''; 
   onStatusChange();
@@ -1015,9 +1066,9 @@ async function submitBet(){
   const status=$('f-status').value;
   let pnl=0;
   if(status==='win') pnl=parseFloat($('f-pnl').value)||0;
-  else if(status==='loss') pnl=-stake;
- 
-  const row={user_name:user.name, match, sport:$('f-sport').value, bookmaker:$('f-book').value, stake, odds, pnl, status, legs:legs?JSON.stringify(legs):null};
+  else if(status==='loss') pnl=isFreebet?0:-stake;
+
+  const row={user_name:user.name, match, sport:$('f-sport').value, bookmaker:$('f-book').value, stake, odds, pnl, status, legs:legs?JSON.stringify(legs):null, is_freebet:isFreebet};
  
   const currentEditingId = editingId;
   closeModal();
