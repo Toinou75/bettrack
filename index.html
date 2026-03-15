@@ -995,16 +995,17 @@ async function submitBet(){
  
   const row={user_name:user.name, match, sport:$('f-sport').value, bookmaker:$('f-book').value, stake, odds, pnl, status, legs:legs?JSON.stringify(legs):null};
  
+  const currentEditingId = editingId;
   closeModal();
   showLoading(true);
-  if(editingId){
-    await sbUpdate(editingId, row);
+  if(currentEditingId){
+    await sbUpdate(currentEditingId, row);
   } else {
     await sbInsert(row);
   }
   // Update bankroll
-  if(editingId){
-    const oldBet = allBets.find(b=>b.id===editingId);
+  if(currentEditingId){
+    const oldBet = allBets.find(b=>b.id===currentEditingId);
     const oldPnl = oldBet&&oldBet.status!=='pending'?parseFloat(oldBet.pnl):0;
     const corrected = parseFloat((user.bankroll - oldPnl + (status!=='pending'?pnl:0)).toFixed(2));
     user.bankroll = corrected;
