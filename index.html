@@ -939,6 +939,8 @@ function openModal(bet){
     const calcOdds=rawLegs.reduce((a,l)=>a*(l.odds||1),1);
     $('f-odds-combi').value=(bet&&bet.odds&&Math.abs(bet.odds-calcOdds)>0.001)?bet.odds:'';
   } else {
+    $('legs-list').innerHTML='';
+    $('combined-odds-val').textContent='—';
     $('f-match').value=bet?bet.match:'';
     $('f-odds').value=bet&&bet.odds?bet.odds:'';
     $('f-odds-combi').value='';
