@@ -589,17 +589,34 @@ let sortCol='date', sortDir='desc', searchQ='', confirmCb=null;
 let isFreebet=false;
 let allBets = []; // cache local
  
+// ── BANKROLL EFFECT ────────────────────────────────────────────
+// Retourne l'impact d'un pari sur la bankroll
+// pending non-freebet : -stake (mise bloquée)
+// win               : +stake + gain = +odds*stake (récupération + bénéfice)
+// loss non-freebet  : 0 (stake déjà déduit au placement)
+// freebet pending   : 0
+// freebet win       : +gain = +(odds-1)*stake
+// freebet loss      : 0
+function betEffect(status, pnl, stake, is_freebet) {
+  if(status==='pending') return is_freebet ? 0 : -stake;
+  if(status==='win')     return is_freebet ? pnl : stake + pnl; // stake retourné + bénéfice
+  if(status==='loss')    return 0; // stake déjà déduit au placement (ou freebet = 0)
+  return 0;
+}
+
 // ── STATS ──────────────────────────────────────────────────────
 function computeStats(bets) {
   const closed = bets.filter(b=>b.status!=='pending');
   const wins = bets.filter(b=>b.status==='win').length;
   const losses = bets.filter(b=>b.status==='loss').length;
   const pnl = closed.reduce((a,b)=>a+b.pnl,0);
-  const staked = bets.reduce((a,b)=>a+b.stake,0);
+  const staked = bets.filter(b=>!b.is_freebet).reduce((a,b)=>a+b.stake,0);
+  // Paris en cours (pour recalc initialBankroll)
+  const pendingStaked = bets.filter(b=>b.status==='pending'&&!b.is_freebet).reduce((a,b)=>a+b.stake,0);
   // Freebet stats
   const freebets = bets.filter(b=>b.is_freebet);
   const fbGain = freebets.filter(b=>b.status==='win').reduce((a,b)=>a+b.pnl,0);
-  return { wins, losses, pnl, staked, total:bets.length,
+  return { wins, losses, pnl, staked, pendingStaked, total:bets.length,
     rate: closed.length?((wins/closed.length)*100).toFixed(1):null,
     roi: staked>0?((pnl/staked)*100).toFixed(1):null,
     fbCount: freebets.length, fbGain };
@@ -774,12 +791,14 @@ function renderDash(){
   const s=computeStats(bets), pos=s.pnl>=0;
  
   // Bankroll bar
+  const pendingLabel = s.pendingStaked>0 ? ` (dont ${s.pendingStaked.toFixed(0)} € en cours)` : '';
   $('br-amount').textContent=bankroll.toFixed(2)+' €';
   $('br-delta').style.color=pos?'var(--green)':'var(--red)';
-  $('br-delta').textContent=fmt(s.pnl)+' depuis le début';
+  $('br-delta').textContent=fmt(s.pnl)+' depuis le début'+pendingLabel;
   $('pg-staked').textContent=s.staked.toFixed(0)+' € misés';
   $('pg-count').textContent=s.total+' paris';
-  const pct=Math.min(100,Math.max(4,(bankroll/Math.max(0.01,bankroll-s.pnl))*100));
+  const initialBR = bankroll + s.pendingStaked - s.pnl;
+  const pct=Math.min(100,Math.max(4,(bankroll/Math.max(0.01,initialBR))*100));
   $('pg-fill').style.width=pct+'%'; $('pg-fill').style.background=pos?'var(--green)':'var(--red)';
  
   // Metrics
@@ -798,7 +817,7 @@ function renderDash(){
   renderInsights(bets);
  
   // Chart
-  renderChart(bets, {bankroll, initialBankroll: bankroll - s.pnl});
+  renderChart(bets, {bankroll, initialBankroll: bankroll + s.pendingStaked - s.pnl});
  
   // Table
   renderTable();
@@ -1091,21 +1110,15 @@ async function submitBet(){
   } else {
     await sbInsert(row);
   }
-  // Update bankroll
-  if(currentEditingId){
-    const oldPnl = oldBetSnap&&oldBetSnap.status!=='pending'?parseFloat(oldBetSnap.pnl):0;
-    // Freebet : perte = 0 € même si is_freebet mal chargé (double protection)
-    const effectiveNewPnl = (isFreebet || oldBetSnap?.is_freebet) && status==='loss' ? 0 : (status!=='pending'?pnl:0);
-    const corrected = parseFloat((user.bankroll - oldPnl + effectiveNewPnl).toFixed(2));
-    user.bankroll = corrected;
-    await sbUpdateUserBankroll(user.name, corrected);
+  // Update bankroll via betEffect
+  const newEffect = betEffect(status, pnl, stake, isFreebet);
+  if(currentEditingId && oldBetSnap){
+    const oldEffect = betEffect(oldBetSnap.status, parseFloat(oldBetSnap.pnl||0), parseFloat(oldBetSnap.stake||0), !!oldBetSnap.is_freebet);
+    user.bankroll = parseFloat((user.bankroll - oldEffect + newEffect).toFixed(2));
   } else {
-    if(status!=='pending'){
-      const nb = parseFloat((user.bankroll + pnl).toFixed(2));
-      user.bankroll = nb;
-      await sbUpdateUserBankroll(user.name, nb);
-    }
+    user.bankroll = parseFloat((user.bankroll + newEffect).toFixed(2));
   }
+  await sbUpdateUserBankroll(user.name, user.bankroll);
   try{const s=JSON.parse(localStorage.getItem('bt_session')||'{}');s.bankroll=user.bankroll;localStorage.setItem('bt_session',JSON.stringify(s));}catch{}
   allBets = await sbSelect('&user_name=eq.'+encodeURIComponent(user.name));
   showLoading(false);
@@ -1115,8 +1128,10 @@ async function submitBet(){
 function editBet(id){ const bet=allBets.find(b=>b.id===id); if(bet)openModal(bet); }
 async function delBet(id){
   const bet = allBets.find(b=>b.id===id);
-  if(bet&&bet.status!=='pending'){
-    const nb=parseFloat((user.bankroll-parseFloat(bet.pnl)).toFixed(2));
+  if(bet){
+    // Annuler l'effet du pari sur la bankroll
+    const effect = betEffect(bet.status, parseFloat(bet.pnl||0), parseFloat(bet.stake||0), !!bet.is_freebet);
+    const nb = parseFloat((user.bankroll - effect).toFixed(2));
     user.bankroll=nb;
     await sbUpdateUserBankroll(user.name, nb);
     try{const s=JSON.parse(localStorage.getItem('bt_session')||'{}');s.bankroll=nb;localStorage.setItem('bt_session',JSON.stringify(s));}catch{}
