@@ -901,25 +901,6 @@ function saveBR(){
 }
 
 // ── LEADERBOARD ────────────────────────────────────────────────
-function renderLB(){
-  const d=load();
-  const users=Object.entries(d).map(([name,u])=>({name,...computeStats(u.bets||[])})).sort((a,b)=>b.pnl-a.pnl);
-  const n=users.length;
-  $('lb-sub').textContent=n+' parieur'+(n>1?'s':'')+' enregistré'+(n>1?'s':'');
-  const list=$('lb-list');
-  if(!n){list.innerHTML='<div class="empty"><div class="empty-ico">🏆</div><div class="empty-t">Classement vide</div><div class="empty-s">Partagez l\'app avec votre pote !</div></div>';return;}
-  list.innerHTML='';
-  users.forEach((u,i)=>{
-    const isMe=u.name===user.name;
-    const rl=i===0?'🥇':i===1?'🥈':i===2?'🥉':'#'+(i+1);
-    const rc=i===0?'gold':i===1?'silver':i===2?'bronze':'';
-    const pc=u.pnl>=0?'var(--green)':'var(--red)';
-    const div=document.createElement('div');
-    div.className='lb-card'+(isMe?' me':'');
-    div.innerHTML=`<div class="lb-rank ${rc}">${rl}</div><div class="lb-av" style="background:${isMe?'var(--accent)':'var(--bg4)'}">${ini(u.name)}</div><div class="lb-info"><div class="lb-name">${esc(u.name)}${isMe?'<span style="font-size:11px;color:var(--accent);margin-left:8px">Vous</span>':''}</div><div class="lb-sub">${u.total} paris · ${u.rate?u.rate+'% réussite':'aucun pari fermé'}</div></div><div class="lb-stats"><div class="lb-stat"><div class="lb-sv" style="color:var(--green)">${u.wins}</div><div class="lb-sl">Gagnés</div></div><div class="lb-stat"><div class="lb-sv" style="color:var(--red)">${u.losses}</div><div class="lb-sl">Perdus</div></div><div class="lb-stat"><div class="lb-sv">${u.roi?u.roi+'%':'—'}</div><div class="lb-sl">ROI</div></div></div><div class="lb-pnl" style="color:${pc}">${fmt(u.pnl)}</div>`;
-    list.appendChild(div);
-  });
-}
 </script>
 </body>
 </html>
