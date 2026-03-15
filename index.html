@@ -588,25 +588,25 @@ function computeInsights(bets) {
 window.addEventListener('DOMContentLoaded',()=>{
   try{const s=localStorage.getItem('bt_session');if(s){const d=JSON.parse(s);user={name:d.name,bankroll:d.bankroll||200,isAdmin:d.isAdmin||false};showApp();}}catch{}
  
-  $('ob-start').addEventListener('click',startOnboard);
-  $('ob-bank').addEventListener('keydown',e=>e.key==='Enter'&&startOnboard());
-  $('ob-name').addEventListener('keydown',e=>e.key==='Enter'&&$('ob-bank').focus());
+  function bindEl(id, evt, fn){ const el=$(id); if(el) el.addEventListener(evt, fn); }
+  bindEl('ob-start','click', startOnboard);
+  bindEl('login-name','keydown', e=>e.key==='Enter'&&$('login-pass')&&$('login-pass').focus());
+  bindEl('login-pass','keydown', e=>e.key==='Enter'&&startOnboard());
  
- const regStartEl = $('reg-start');
-if(regStartEl) regStartEl.addEventListener('click', registerUser);
-const loginPassEl = $('login-pass');
-if(loginPassEl) loginPassEl.addEventListener('keydown', e=>e.key==='Enter'&&startOnboard());
-const regPass2El = $('reg-pass2');
-if(regPass2El) regPass2El.addEventListener('keydown', e=>e.key==='Enter'&&registerUser());
+  $('reg-start') && $('reg-start').addEventListener('click', registerUser);
+  $('login-pass') && $('login-pass').addEventListener('keydown', e=>e.key==='Enter'&&startOnboard());
+  $('reg-pass2') && $('reg-pass2').addEventListener('keydown', e=>e.key==='Enter'&&registerUser());
   $('btn-logout').addEventListener('click',()=>{
     try{localStorage.removeItem('bt_session');}catch{}
     allBets=[]; user=null;
-    $('login-name').value=''; $('login-pass').value='';
-    $('login-error').classList.remove('show');
-    $('admin-badge').style.display='none';
+    const lname=$('login-name'), lpass=$('login-pass'), lerr=$('login-error'), abadge=$('admin-badge');
+    if(lname) lname.value='';
+    if(lpass) lpass.value='';
+    if(lerr) lerr.classList.remove('show');
+    if(abadge) abadge.style.display='none';
     switchAuthTab('login');
     user=null; $('pg-app').style.display='none'; $('pg-onboard').style.display='flex';
-    $('ob-name').value=''; $('ob-bank').value='';
+    // fields reset handled above
   });
  
   $('btn-add').addEventListener('click',()=>openModal(null));
@@ -643,12 +643,12 @@ if(regPass2El) regPass2El.addEventListener('keydown', e=>e.key==='Enter'&&regist
 });
  
 function switchAuthTab(tab){
-  const loginEl=$('auth-login'), regEl=$('auth-register');
-  if(!loginEl||!regEl) return;
-  $('tab-login-btn').classList.toggle('active', tab==='login');
-  $('tab-register-btn').classList.toggle('active', tab==='register');
-  loginEl.style.display = tab==='login'?'block':'none';
-  regEl.style.display = tab==='register'?'block':'none';
+  const lb=$('tab-login-btn'),rb=$('tab-register-btn'),al=$('auth-login'),ar=$('auth-register');
+  if(!lb||!rb||!al||!ar) return;
+  lb.classList.toggle('active',tab==='login');
+  rb.classList.toggle('active',tab==='register');
+  al.style.display=tab==='login'?'block':'none';
+  ar.style.display=tab==='register'?'block':'none';
 }
  
 async function startOnboard(){
