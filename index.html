@@ -229,6 +229,8 @@ code { background:var(--bg4); padding:1px 6px; border-radius:4px; font-size:12px
     </div>
   </nav>
 
+  <div id="loading-bar" style="display:none;position:fixed;top:60px;left:0;right:0;z-index:99;height:3px;background:linear-gradient(90deg,var(--accent),var(--green));animation:loadbar 1s ease-in-out infinite alternate"></div>
+  <style>@keyframes loadbar{from{opacity:0.4;transform:scaleX(0.3)}to{opacity:1;transform:scaleX(1)}}</style>
   <div class="main">
     <!-- DASHBOARD -->
     <div id="tab-dash" class="tab-content active">
@@ -421,17 +423,44 @@ code { background:var(--bg4); padding:1px 6px; border-radius:4px; font-size:12px
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script>
 'use strict';
-const KEY = 'bettrack_v5';
-const load = () => { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch { return {}; } };
-const save = d => localStorage.setItem(KEY, JSON.stringify(d));
+
+// ── SUPABASE CONFIG ────────────────────────────────────────────
+const SUPA_URL = 'YOUR_SUPABASE_URL';
+const SUPA_KEY = 'sb_publishable_qiRH_j3LhjglrtY9bwhRjQ_npytO81A';
+const SUPA_HEADERS = { 'Content-Type': 'application/json', 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY };
+
+async function sbSelect(filter='') {
+  const r = await fetch(SUPA_URL+'/rest/v1/paris?order=created_at.desc'+filter, { headers: SUPA_HEADERS });
+  return r.ok ? r.json() : [];
+}
+async function sbInsert(row) {
+  const r = await fetch(SUPA_URL+'/rest/v1/paris', { method:'POST', headers:{...SUPA_HEADERS,'Prefer':'return=representation'}, body: JSON.stringify(row) });
+  return r.ok ? r.json() : null;
+}
+async function sbUpdate(id, row) {
+  const r = await fetch(SUPA_URL+'/rest/v1/paris?id=eq.'+id, { method:'PATCH', headers:{...SUPA_HEADERS,'Prefer':'return=representation'}, body: JSON.stringify(row) });
+  return r.ok ? r.json() : null;
+}
+async function sbDelete(id) {
+  await fetch(SUPA_URL+'/rest/v1/paris?id=eq.'+id, { method:'DELETE', headers: SUPA_HEADERS });
+}
+
+// localStorage pour bankroll et session uniquement
+const LS_KEY = 'bettrack_br';
+const loadBR = () => { try { return JSON.parse(localStorage.getItem(LS_KEY)) || {}; } catch { return {}; } };
+const saveBR_ls = d => localStorage.setItem(LS_KEY, JSON.stringify(d));
+const getUserBankroll = name => { const d=loadBR(); return d[name] ?? 200; };
+const setUserBankroll = (name, v) => { const d=loadBR(); d[name]=v; saveBR_ls(d); };
+
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 const ini = n => n.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
 const fmt = n => (n>=0?'+':'')+n.toFixed(2)+' €';
-const fmtD = iso => new Date(iso).toLocaleDateString('fr-FR');
+const fmtD = iso => iso ? new Date(iso).toLocaleDateString('fr-FR') : '—';
 
 let user=null, activeFilter='Tous', chart=null, editingId=null, betType='simple';
 let sortCol='date', sortDir='desc', searchQ='', confirmCb=null;
+let allBets = []; // cache local
 
 // ── STATS ──────────────────────────────────────────────────────
 function computeStats(bets) {
@@ -446,7 +475,7 @@ function computeStats(bets) {
 }
 
 function computeInsights(bets) {
-  const closed = [...bets].filter(b=>b.status!=='pending').reverse(); // chrono order
+  const closed = [...bets].filter(b=>b.status!=='pending').sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
   if (!closed.length) return null;
 
   // Current streak
@@ -465,26 +494,16 @@ function computeInsights(bets) {
     for(let i=0;i<=closed.length-win;i++){
       const slice=closed.slice(i,i+win);
       const p=slice.reduce((a,b)=>a+b.pnl,0);
-      if(p>bestRun.pnl){bestRun={pnl:p,start:fmtD(slice[0].date),end:fmtD(slice[win-1].date)};}
-      if(p<worstRun.pnl){worstRun={pnl:p,start:fmtD(slice[0].date),end:fmtD(slice[win-1].date)};}
+      if(p>bestRun.pnl){bestRun={pnl:p,start:fmtD(slice[0].created_at),end:fmtD(slice[win-1].created_at)};}
+      if(p<worstRun.pnl){worstRun={pnl:p,start:fmtD(slice[0].created_at),end:fmtD(slice[win-1].created_at)};}
     }
   }
   return { streak, streakType, bestRun, worstRun };
 }
 
-// ── STORAGE HELPERS ────────────────────────────────────────────
-function getU() {
-  const d=load(); if(!d[user.name]) d[user.name]={bankroll:user.bankroll,initialBankroll:user.bankroll,bets:[]};
-  return d[user.name];
-}
-function updU(fn) {
-  const d=load(); if(!d[user.name]) d[user.name]={bankroll:user.bankroll,initialBankroll:user.bankroll,bets:[]};
-  fn(d[user.name]); save(d);
-}
-
 // ── BOOT ───────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded',()=>{
-  try{const s=localStorage.getItem('bt_session');if(s){user=JSON.parse(s);showApp();}}catch{}
+  try{const s=localStorage.getItem('bt_session');if(s){const d=JSON.parse(s);user={name:d.name,bankroll:getUserBankroll(d.name)};showApp();}}catch{}
 
   $('ob-start').addEventListener('click',startOnboard);
   $('ob-bank').addEventListener('keydown',e=>e.key==='Enter'&&startOnboard());
@@ -492,6 +511,7 @@ window.addEventListener('DOMContentLoaded',()=>{
 
   $('btn-logout').addEventListener('click',()=>{
     try{localStorage.removeItem('bt_session');}catch{}
+    allBets=[];
     user=null; $('pg-app').style.display='none'; $('pg-onboard').style.display='flex';
     $('ob-name').value=''; $('ob-bank').value='';
   });
@@ -503,7 +523,7 @@ window.addEventListener('DOMContentLoaded',()=>{
 
   $('br-edit-btn').addEventListener('click',()=>{
     $('br-view').style.display='none'; $('br-edit-row').style.display='flex';
-    $('br-inp').value=getU().bankroll.toFixed(2); $('br-inp').focus();
+    $('br-inp').value=getUserBankroll(user.name).toFixed(2); $('br-inp').focus();
   });
   $('br-save').addEventListener('click',saveBR);
   $('br-inp').addEventListener('keydown',e=>e.key==='Enter'&&saveBR());
@@ -532,16 +552,27 @@ window.addEventListener('DOMContentLoaded',()=>{
 function startOnboard(){
   const name=$('ob-name').value.trim(), bankroll=parseFloat($('ob-bank').value);
   if(!name||isNaN(bankroll)||bankroll<0){if(!name)$('ob-name').focus();else $('ob-bank').focus();return;}
-  user={name,bankroll};
-  const d=load(); if(!d[name]){d[name]={bankroll,initialBankroll:bankroll,bets:[]};save(d);}
-  try{localStorage.setItem('bt_session',JSON.stringify(user));}catch{}
+  // If first time, save initial bankroll
+  const existing=getUserBankroll(name);
+  if(existing===200&&bankroll!==200) setUserBankroll(name, bankroll);
+  user={name, bankroll: getUserBankroll(name)};
+  try{localStorage.setItem('bt_session',JSON.stringify({name:user.name}));}catch{}
   showApp();
 }
 
-function showApp(){
+async function showApp(){
   $('pg-onboard').style.display='none'; $('pg-app').style.display='block';
   $('nav-av').textContent=ini(user.name); $('nav-nm').textContent=user.name;
+  user.bankroll = getUserBankroll(user.name);
+  showLoading(true);
+  allBets = await sbSelect('&user_name=eq.'+encodeURIComponent(user.name));
+  showLoading(false);
   renderDash();
+}
+
+function showLoading(on){
+  const el=$('loading-bar');
+  if(el) el.style.display=on?'block':'none';
 }
 
 function switchTab(tab){
@@ -553,15 +584,17 @@ function switchTab(tab){
 
 // ── DASHBOARD ──────────────────────────────────────────────────
 function renderDash(){
-  const u=getU(), bets=u.bets||[], s=computeStats(bets), pos=s.pnl>=0;
+  const bets = allBets;
+  const bankroll = user.bankroll;
+  const s=computeStats(bets), pos=s.pnl>=0;
 
   // Bankroll bar
-  $('br-amount').textContent=u.bankroll.toFixed(2)+' €';
+  $('br-amount').textContent=bankroll.toFixed(2)+' €';
   $('br-delta').style.color=pos?'var(--green)':'var(--red)';
   $('br-delta').textContent=fmt(s.pnl)+' depuis le début';
   $('pg-staked').textContent=s.staked.toFixed(0)+' € misés';
   $('pg-count').textContent=s.total+' paris';
-  const pct=Math.min(100,Math.max(4,(u.bankroll/Math.max(0.01,u.bankroll-s.pnl))*100));
+  const pct=Math.min(100,Math.max(4,(bankroll/Math.max(0.01,bankroll-s.pnl))*100));
   $('pg-fill').style.width=pct+'%'; $('pg-fill').style.background=pos?'var(--green)':'var(--red)';
 
   // Metrics
@@ -578,7 +611,7 @@ function renderDash(){
   renderInsights(bets);
 
   // Chart
-  renderChart(bets, u);
+  renderChart(bets, {bankroll, initialBankroll: bankroll - s.pnl});
 
   // Table
   renderTable();
@@ -617,7 +650,7 @@ function renderInsights(bets){
 }
 
 function renderChart(bets,u){
-  const closed=[...bets].filter(b=>b.status!=='pending').reverse();
+  const closed=[...bets].filter(b=>b.status!=='pending').sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
   if(!closed.length){$('chart-card').style.display='none';return;}
   $('chart-card').style.display='block';
   const s=computeStats(bets);
@@ -639,7 +672,7 @@ function renderChart(bets,u){
 }
 
 function renderTable(){
-  const u=getU(), bets=u.bets||[];
+  const bets=allBets;
 
   // Update sport filters
   const sports=['Tous',...new Set(bets.map(b=>b.sport))];
@@ -663,7 +696,7 @@ function renderTable(){
   // Sort
   filtered.sort((a,b)=>{
     let av,bv;
-    if(sortCol==='date'){av=new Date(a.date);bv=new Date(b.date);}
+    if(sortCol==='date'){av=new Date(a.created_at);bv=new Date(b.created_at);}
     else if(sortCol==='stake'){av=a.stake;bv=b.stake;}
     else if(sortCol==='pnl'){av=a.pnl;bv=b.pnl;}
     else{av=a.match.toLowerCase();bv=b.match.toLowerCase();}
@@ -689,11 +722,12 @@ function renderTable(){
     const pc=bet.pnl>0?'var(--green)':bet.pnl<0?'var(--red)':'var(--text3)';
     const bc=bet.status==='win'?'bw':bet.status==='loss'?'bl':bet.status==='pending'?'bp':'bp';
     const bt=bet.status==='win'?'✓ Gagné':bet.status==='loss'?'✗ Perdu':'⏳ En cours';
-    const isCombi=bet.legs&&bet.legs.length>0;
+    const legs=bet.legs?(typeof bet.legs==='string'?JSON.parse(bet.legs):bet.legs):null;
+      const isCombi=legs&&legs.length>0;
     const matchCell=isCombi
-      ?`<div>${esc(bet.match)}<span class="combo-badge">Combiné ${bet.legs.length} sél.</span></div><div class="td-legs">${bet.legs.map(l=>esc(l.match)).join(' · ')}</div>`
+      ?`<div>${esc(bet.match)}<span class="combo-badge">Combiné ${legs.length} sél.</span></div><div class="td-legs">${legs.map(l=>esc(l.match)).join(' · ')}</div>`
       :esc(bet.match);
-    const oddsVal=isCombi?(bet.legs.reduce((a,l)=>a*(l.odds||1),1)).toFixed(2):bet.odds?bet.odds.toFixed(2):'—';
+    const oddsVal=isCombi?(legs.reduce((a,l)=>a*(l.odds||1),1)).toFixed(2):bet.odds?bet.odds.toFixed(2):'—';
     tr.innerHTML=`
       <td class="td-match">${matchCell}</td>
       <td><span class="sbadge">${esc(bet.sport)}</span></td>
@@ -702,7 +736,7 @@ function renderTable(){
       <td style="color:var(--text)">${oddsVal}</td>
       <td style="color:${pc};font-weight:600">${bet.status==='pending'?'—':fmt(bet.pnl)}</td>
       <td><span class="badge ${bc}">${bt}</span></td>
-      <td style="color:var(--text3)">${fmtD(bet.date)}</td>
+      <td style="color:var(--text3)">${fmtD(bet.created_at)}</td>
       <td style="display:flex;gap:6px"><button class="btn-sm btn-edit">✏</button><button class="btn-sm btn-danger">✕</button></td>`;
     tr.querySelector('.btn-edit').addEventListener('click',()=>editBet(bet.id));
     tr.querySelector('.btn-danger').addEventListener('click',()=>{
@@ -744,12 +778,14 @@ function updateCombinedOdds(){
 
 function openModal(bet){
   editingId=bet?bet.id:null;
-  const isCombi=bet&&bet.legs&&bet.legs.length>0;
+  const rawLegs = bet&&bet.legs ? (typeof bet.legs==='string'?JSON.parse(bet.legs):bet.legs) : null;
+  const isCombi=rawLegs&&rawLegs.length>0;
+  if(isCombi) bet={...bet,legs:rawLegs};
   setType(isCombi?'combi':'simple');
 
   if(isCombi){
     $('legs-list').innerHTML='';
-    bet.legs.forEach(l=>{
+    rawLegs.forEach(l=>{
       addLeg();
       const row=$('legs-list').lastChild;
       row.querySelectorAll('input')[0].value=l.match||'';
@@ -766,7 +802,7 @@ function openModal(bet){
   $('f-stake').value=bet?bet.stake:'';
   $('f-status').value=bet?bet.status:'win';
   // For win: pnl stored is the gain; for loss: pnl=-stake, we don't show the field
-  $('f-pnl').value=(bet&&bet.status==='win')?bet.pnl:'';
+  $('f-pnl').value=(bet&&bet.status==='win')?parseFloat(bet.pnl):''; 
   onStatusChange();
   $('modal-title').textContent=bet?'Modifier le pari':'Nouveau pari';
   $('modal-ok').textContent=bet?'Enregistrer':'Ajouter le pari';
@@ -798,7 +834,7 @@ function onStatusChange(){
 }
 function closeModal(){ $('modal').classList.remove('open'); editingId=null; }
 
-function submitBet(){
+async function submitBet(){
   const stake=parseFloat($('f-stake').value);
   if(isNaN(stake)||stake<0) return;
 
@@ -816,33 +852,51 @@ function submitBet(){
   }
 
   const status=$('f-status').value;
-  // pnl: win = +gain entered, loss = -stake, pending = 0
   let pnl=0;
   if(status==='win') pnl=parseFloat($('f-pnl').value)||0;
   else if(status==='loss') pnl=-stake;
-  const newData={match,sport:$('f-sport').value,bookmaker:$('f-book').value,stake,odds,pnl,status,legs};
+
+  const row={user_name:user.name, match, sport:$('f-sport').value, bookmaker:$('f-book').value, stake, odds, pnl, status, legs:legs?JSON.stringify(legs):null};
+
+  closeModal();
+  showLoading(true);
   if(editingId){
-    updU(u=>{
-      const old=u.bets.find(b=>b.id===editingId); if(!old)return;
-      if(old.status!=='pending') u.bankroll=parseFloat((u.bankroll-old.pnl).toFixed(2));
-      Object.assign(old,newData);
-      if(old.status!=='pending') u.bankroll=parseFloat((u.bankroll+old.pnl).toFixed(2));
-    });
+    await sbUpdate(editingId, row);
   } else {
-    const bet={id:Date.now(),...newData,date:new Date().toISOString()};
-    updU(u=>{u.bets.unshift(bet);if(bet.status!=='pending')u.bankroll=parseFloat((u.bankroll+bet.pnl).toFixed(2));});
+    await sbInsert(row);
   }
-  closeModal(); renderDash();
+  // Update bankroll
+  const newBankroll = parseFloat((getUserBankroll(user.name) + (status!=='pending'?pnl:0)).toFixed(2));
+  if(editingId){
+    const old = allBets.find(b=>b.id===editingId);
+    const oldPnl = old&&old.status!=='pending'?old.pnl:0;
+    const corrected = parseFloat((getUserBankroll(user.name) - oldPnl + (status!=='pending'?pnl:0)).toFixed(2));
+    setUserBankroll(user.name, corrected);
+    user.bankroll = corrected;
+  } else {
+    if(status!=='pending'){ setUserBankroll(user.name, newBankroll); user.bankroll = newBankroll; }
+  }
+  allBets = await sbSelect('&user_name=eq.'+encodeURIComponent(user.name));
+  showLoading(false);
+  renderDash();
 }
 
-function editBet(id){ const bet=getU().bets.find(b=>b.id===id); if(bet)openModal(bet); }
-function delBet(id){
-  updU(u=>{const b=u.bets.find(x=>x.id===id);if(b&&b.status!=='pending')u.bankroll=parseFloat((u.bankroll-b.pnl).toFixed(2));u.bets=u.bets.filter(x=>x.id!==id);});
+function editBet(id){ const bet=allBets.find(b=>b.id===id); if(bet)openModal(bet); }
+async function delBet(id){
+  const bet = allBets.find(b=>b.id===id);
+  if(bet&&bet.status!=='pending'){
+    const nb=parseFloat((getUserBankroll(user.name)-bet.pnl).toFixed(2));
+    setUserBankroll(user.name,nb); user.bankroll=nb;
+  }
+  showLoading(true);
+  await sbDelete(id);
+  allBets = await sbSelect('&user_name=eq.'+encodeURIComponent(user.name));
+  showLoading(false);
   renderDash();
 }
 function saveBR(){
   const v=parseFloat($('br-inp').value); if(isNaN(v)||v<0)return;
-  updU(u=>{u.bankroll=v;});
+  setUserBankroll(user.name, v); user.bankroll=v;
   $('br-view').style.display='block'; $('br-edit-row').style.display='none'; renderDash();
 }
 
