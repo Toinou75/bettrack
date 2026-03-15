@@ -785,19 +785,15 @@ function autoCalcGain(){
 }
 function onStatusChange(){
   const s=$('f-status').value;
-  const stake=parseFloat($('f-stake').value)||0;
-  if(s==='loss'){
-    $('field-pnl').style.display='none';
-    $('f-pnl').value='';
-  } else if(s==='pending'){
+  if(s==='loss'||s==='pending'){
     $('field-pnl').style.display='none';
     $('f-pnl').value='';
   } else {
     $('field-pnl').style.display='block';
     $('f-pnl-label').textContent='Gain net (€)';
-    $('f-pnl-hint').textContent='Montant que tu as gagné (hors mise)';
     $('f-pnl').placeholder='Ex: 15';
     $('f-pnl').min='0';
+    autoCalcGain();
   }
 }
 function closeModal(){ $('modal').classList.remove('open'); editingId=null; }
