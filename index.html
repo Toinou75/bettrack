@@ -592,9 +592,12 @@ window.addEventListener('DOMContentLoaded',()=>{
   $('ob-bank').addEventListener('keydown',e=>e.key==='Enter'&&startOnboard());
   $('ob-name').addEventListener('keydown',e=>e.key==='Enter'&&$('ob-bank').focus());
  
-  $('reg-start') && $('reg-start').addEventListener('click', registerUser);
-  $('login-pass') && $('login-pass').addEventListener('keydown', e=>e.key==='Enter'&&startOnboard());
-  $('reg-pass2') && $('reg-pass2').addEventListener('keydown', e=>e.key==='Enter'&&registerUser());
+ const regStartEl = $('reg-start');
+if(regStartEl) regStartEl.addEventListener('click', registerUser);
+const loginPassEl = $('login-pass');
+if(loginPassEl) loginPassEl.addEventListener('keydown', e=>e.key==='Enter'&&startOnboard());
+const regPass2El = $('reg-pass2');
+if(regPass2El) regPass2El.addEventListener('keydown', e=>e.key==='Enter'&&registerUser());
   $('btn-logout').addEventListener('click',()=>{
     try{localStorage.removeItem('bt_session');}catch{}
     allBets=[]; user=null;
