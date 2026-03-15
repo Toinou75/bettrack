@@ -640,10 +640,12 @@ window.addEventListener('DOMContentLoaded',()=>{
 });
  
 function switchAuthTab(tab){
+  const loginEl=$('auth-login'), regEl=$('auth-register');
+  if(!loginEl||!regEl) return;
   $('tab-login-btn').classList.toggle('active', tab==='login');
   $('tab-register-btn').classList.toggle('active', tab==='register');
-  $('auth-login').style.display = tab==='login'?'block':'none';
-  $('auth-register').style.display = tab==='register'?'block':'none';
+  loginEl.style.display = tab==='login'?'block':'none';
+  regEl.style.display = tab==='register'?'block':'none';
 }
  
 async function startOnboard(){
