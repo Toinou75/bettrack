@@ -1081,9 +1081,9 @@ async function submitBet(){
 
   const row={user_name:user.name, match, sport:$('f-sport').value, bookmaker:$('f-book').value, stake, odds, pnl, status, legs:legs?JSON.stringify(legs):null, is_freebet:isFreebet};
  
+  const currentEditingId = editingId;
   // Mémoriser l'ancien pari avant closeModal (qui reset editingId)
   const oldBetSnap = currentEditingId ? allBets.find(b=>b.id===currentEditingId) : null;
-  const currentEditingId = editingId;
   closeModal();
   showLoading(true);
   if(currentEditingId){
