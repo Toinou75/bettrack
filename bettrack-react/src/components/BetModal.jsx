@@ -48,11 +48,11 @@ export default function BetModal({ open, bet, onClose, onSubmit }) {
       setPnl(bet.pnl?.toString() || '0');
       setIsFreebet(!!bet.is_freebet);
       setClosingOdds(bet.closing_odds?.toString() || '');
-      setLegs(parsedLegs || [{ match: '', odds: '' }]);
+      setLegs(parsedLegs ? parsedLegs.map(l => ({ sport: 'Football', bet_type: '', ...l })) : [{ match: '', odds: '', sport: 'Football', bet_type: '' }]);
     } else {
       setBetType('simple'); setMatch(''); setSport('Football'); setMarketType('');
       setBookmaker('Betclic'); setStake(''); setOdds(''); setStatus('pending');
-      setPnl(''); setIsFreebet(false); setClosingOdds(''); setLegs([{ match: '', odds: '' }]);
+      setPnl(''); setIsFreebet(false); setClosingOdds(''); setLegs([{ match: '', odds: '', sport: 'Football', bet_type: '' }]);
     }
     setDirty(false);
   }, [bet, open]);
@@ -73,7 +73,7 @@ export default function BetModal({ open, bet, onClose, onSubmit }) {
       const validLegs = legs.filter(l => l.match.trim());
       if (!validLegs.length) return;
       finalMatch = validLegs.map(l => l.match).join(' + ');
-      finalLegs = JSON.stringify(validLegs.map(l => ({ match: l.match.trim(), odds: parseFloat(l.odds) || null })));
+      finalLegs = JSON.stringify(validLegs.map(l => ({ match: l.match.trim(), odds: parseFloat(l.odds) || null, sport: l.sport || null, bet_type: l.bet_type || null })));
       const manual = parseFloat(odds);
       finalOdds = (!isNaN(manual) && manual > 1) ? manual : validLegs.reduce((a, l) => a * (parseFloat(l.odds) || 1), 1);
     } else {
@@ -116,9 +116,15 @@ export default function BetModal({ open, bet, onClose, onSubmit }) {
 
   const mmCheck = checkMoneyManagement(parseFloat(stake), user?.bankroll || 0);
 
-  const addLeg = () => { setLegs([...legs, { match: '', odds: '' }]); markDirty(); };
+  const addLeg = () => { setLegs([...legs, { match: '', odds: '', sport: 'Football', bet_type: '' }]); markDirty(); };
   const removeLeg = idx => { setLegs(legs.filter((_, i) => i !== idx)); markDirty(); };
-  const updateLeg = (idx, field, val) => { const n = [...legs]; n[idx] = { ...n[idx], [field]: val }; setLegs(n); markDirty(); };
+  const updateLeg = (idx, field, val) => {
+    const n = [...legs];
+    n[idx] = { ...n[idx], [field]: val };
+    if (field === 'sport') n[idx].bet_type = '';
+    setLegs(n);
+    markDirty();
+  };
 
   if (!open) return null;
 
@@ -130,7 +136,7 @@ export default function BetModal({ open, bet, onClose, onSubmit }) {
         {/* Type toggle */}
         <div className="type-toggle">
           <button className={`type-btn${betType === 'simple' ? ' active' : ''}`} onClick={() => { setBetType('simple'); markDirty(); }}>Simple</button>
-          <button className={`type-btn${betType === 'combi' ? ' active' : ''}`} onClick={() => { setBetType('combi'); markDirty(); }}>Combiné</button>
+          <button className={`type-btn${betType === 'combi' ? ' active' : ''}`} onClick={() => { setBetType('combi'); setMarketType(''); markDirty(); }}>Combiné</button>
         </div>
 
         <div className="form2">
@@ -146,9 +152,20 @@ export default function BetModal({ open, bet, onClose, onSubmit }) {
                 <div className="legs-title">Sélections</div>
                 {legs.map((l, i) => (
                   <div key={i} className="leg-row">
-                    <input type="text" value={l.match} onChange={e => updateLeg(i, 'match', e.target.value)} placeholder="Match" />
-                    <input type="number" className="leg-odds" value={l.odds} onChange={e => updateLeg(i, 'odds', e.target.value)} placeholder="Cote" step="0.01" />
-                    {legs.length > 1 && <button className="btn-sm btn-danger" onClick={() => removeLeg(i)}>✕</button>}
+                    <div className="leg-main">
+                      <input type="text" value={l.match} onChange={e => updateLeg(i, 'match', e.target.value)} placeholder="Match" />
+                      <input type="number" className="leg-odds" value={l.odds} onChange={e => updateLeg(i, 'odds', e.target.value)} placeholder="Cote" step="0.01" />
+                      {legs.length > 1 && <button className="btn-sm btn-danger" onClick={() => removeLeg(i)}>✕</button>}
+                    </div>
+                    <div className="leg-details">
+                      <select value={l.sport || 'Football'} onChange={e => updateLeg(i, 'sport', e.target.value)}>
+                        {['Football', 'Tennis', 'Basket', 'Rugby', 'Hockey', 'MMA', 'Boxe', 'eSport', 'Autre'].map(s => <option key={s}>{s}</option>)}
+                      </select>
+                      <select value={l.bet_type || ''} onChange={e => updateLeg(i, 'bet_type', e.target.value)}>
+                        <option value="">— Type</option>
+                        {(BET_TYPES_BY_SPORT[l.sport] || BET_TYPES_BY_SPORT.Autre).map(t => <option key={t} value={t}>{t}</option>)}
+                      </select>
+                    </div>
                   </div>
                 ))}
                 <button className="add-leg-btn" onClick={addLeg}>+ Ajouter une sélection</button>
@@ -164,6 +181,7 @@ export default function BetModal({ open, bet, onClose, onSubmit }) {
             </select>
           </div>
 
+          {betType === 'simple' && (
           <div className="form-field">
             <label>Type de pari</label>
             <select value={marketType} onChange={e => { setMarketType(e.target.value); markDirty(); }}>
@@ -171,6 +189,7 @@ export default function BetModal({ open, bet, onClose, onSubmit }) {
               {(BET_TYPES_BY_SPORT[sport] || BET_TYPES_BY_SPORT.Autre).map(t => <option key={t} value={t}>{t}</option>)}
             </select>
           </div>
+          )}
 
           <div className="form-field">
             <label>Bookmaker</label>
