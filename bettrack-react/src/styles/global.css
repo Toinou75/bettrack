@@ -113,11 +113,12 @@ th{text-align:left;padding:11px 14px;font-size:11px;color:var(--text3);font-weig
 th.sortable{cursor:pointer}th.sortable:hover{color:var(--text2)}
 th .sort-icon{margin-left:4px;opacity:0.4}
 th.sort-asc .sort-icon,th.sort-desc .sort-icon{opacity:1;color:var(--accent)}
-td{padding:12px 14px;font-size:13px;border-bottom:1px solid var(--border);color:var(--text2)}
+td{padding:12px 14px;font-size:13px;border-bottom:1px solid var(--border);color:var(--text2);vertical-align:middle}
 tr:last-child td{border-bottom:none}
 tr:hover td{background:var(--bg3)}
 .td-match{color:var(--text);font-weight:500;max-width:220px}
 .td-legs{font-size:11px;color:var(--text3);margin-top:2px}
+.td-badges{display:flex;flex-wrap:wrap;gap:4px}
 
 /* ── BADGES ────────────────────────────────────────── */
 .badge{display:inline-flex;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600}
@@ -125,7 +126,7 @@ tr:hover td{background:var(--bg3)}
 .bl{background:rgba(255,77,106,.12);color:var(--red)}
 .bp{background:rgba(255,184,77,.12);color:var(--amber)}
 .bc{background:rgba(56,189,248,.12);color:var(--blue)}
-.sbadge{background:var(--bg4);color:var(--text2);font-size:11px;padding:2px 8px;border-radius:20px}
+.sbadge{background:var(--bg4);color:var(--text2);font-size:11px;padding:2px 8px;border-radius:20px;white-space:nowrap;display:inline-block}
 .combo-badge{background:rgba(124,107,255,.12);color:var(--accent);font-size:11px;padding:2px 8px;border-radius:20px;margin-left:4px}
 .fb-badge{background:rgba(255,184,77,.15);color:var(--amber);font-size:10px;padding:2px 7px;border-radius:20px;font-weight:700;margin-left:4px;letter-spacing:0.3px;vertical-align:middle}
 
