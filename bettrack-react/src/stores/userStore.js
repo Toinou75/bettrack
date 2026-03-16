@@ -73,27 +73,38 @@ const useUserStore = create((set, get) => ({
     const existing = await getProfileByUsername(username);
     if (existing) { set({ loading: false }); return 'Ce pseudo est déjà pris.'; }
 
+    const br = bankroll || 200;
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { username, bankroll: bankroll || 200 } },
+      options: { data: { username, bankroll: br } },
     });
-    set({ loading: false });
-    if (error) return error.message;
-    if (!data.user) return 'Erreur lors de la création du compte.';
+    if (error) { set({ loading: false }); return error.message; }
+    if (!data.user) { set({ loading: false }); return 'Erreur lors de la création du compte.'; }
 
-    // Le trigger handle_new_user crée automatiquement le profil
-    // Petit délai pour laisser le trigger s'exécuter
-    await new Promise(r => setTimeout(r, 500));
-    const profile = await getProfile(data.user.id);
+    // Créer le profil côté app (pas de trigger)
+    const isAdmin = username === 'Toinou75';
+    const { error: profileError } = await supabase.from('profiles').insert({
+      id: data.user.id,
+      username,
+      bankroll: br,
+      initial_bankroll: br,
+      is_admin: isAdmin,
+    });
+    if (profileError) {
+      console.error('[Register] Profile creation error:', profileError);
+      set({ loading: false });
+      return 'Compte créé mais erreur profil : ' + profileError.message;
+    }
 
     set({
+      loading: false,
       user: {
         id: data.user.id,
         name: username,
         email: data.user.email || email,
-        bankroll: parseFloat(profile?.bankroll) || bankroll || 200,
-        isAdmin: profile?.is_admin || false,
+        bankroll: br,
+        isAdmin,
       },
     });
     return null;
