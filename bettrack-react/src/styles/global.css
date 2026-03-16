@@ -101,6 +101,7 @@ button:hover{background:var(--bg4)}
 
 /* ── TABLE TOOLBAR ─────────────────────────────────── */
 .table-toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:1rem}
+.toolbar-actions{display:flex;gap:8px;margin-left:auto}
 .search-wrap{flex:1;min-width:180px;max-width:300px;position:relative}
 .search-wrap input{padding-left:32px}
 .search-icon{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text3);font-size:14px;pointer-events:none}
