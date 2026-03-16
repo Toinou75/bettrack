@@ -1,70 +1,116 @@
 import { create } from 'zustand';
-import { getUser, createUser, updateUserBankroll, updateUser, updateUserBets, deleteUser } from '../services/supabase';
-import { hashPassword, hashPasswordLegacy } from '../utils/hash';
+import { supabase, getProfile, getProfileByUsername, updateProfile, updateUserBets } from '../services/supabase';
 
 const useUserStore = create((set, get) => ({
-  user: null,       // { name, bankroll, isAdmin }
+  user: null,       // { id, name, email, bankroll, isAdmin }
   loading: false,
+  _initialized: false,
 
-  /* ── Restore session ─────────────────────────── */
-  restoreSession() {
-    try {
-      const s = JSON.parse(localStorage.getItem('bt_session') || 'null');
-      if (s?.name) set({ user: s });
-      return !!s;
-    } catch { return false; }
+  /* ── Init (session restore via Supabase Auth) ── */
+  async init() {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.user) {
+      const profile = await getProfile(session.user.id);
+      if (profile) {
+        set({
+          user: {
+            id: session.user.id,
+            name: profile.username,
+            email: session.user.email,
+            bankroll: parseFloat(profile.bankroll) || 200,
+            isAdmin: profile.is_admin || false,
+          },
+        });
+      }
+    }
+    set({ _initialized: true });
+
+    // Listener pour changements de session (token refresh, sign out, etc.)
+    supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_OUT') {
+        set({ user: null });
+      } else if (event === 'TOKEN_REFRESHED' && session?.user) {
+        // Refresh le profil au cas où
+        const profile = await getProfile(session.user.id);
+        if (profile) {
+          set(s => ({
+            user: s.user ? {
+              ...s.user,
+              bankroll: parseFloat(profile.bankroll) || s.user.bankroll,
+              isAdmin: profile.is_admin || false,
+            } : null,
+          }));
+        }
+      }
+    });
   },
 
   /* ── Login ───────────────────────────────────── */
-  async login(username, password) {
+  async login(email, password) {
     set({ loading: true });
-    const dbUser = await getUser(username);
-    const hash       = await hashPassword(password);
-    const legacyHash = await hashPasswordLegacy(password);
-    set({ loading: false });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) { set({ loading: false }); return error.message === 'Invalid login credentials' ? 'Email ou mot de passe incorrect.' : error.message; }
 
-    if (!dbUser || (dbUser.password_hash !== hash && dbUser.password_hash !== legacyHash)) {
-      return 'Pseudo ou mot de passe incorrect.';
-    }
-    // Migrate legacy → PBKDF2
-    if (dbUser.password_hash === legacyHash && dbUser.password_hash !== hash) {
-      await updateUser(username, { password_hash: hash });
-    }
-    const user = { name: dbUser.username, bankroll: parseFloat(dbUser.bankroll) || 200, isAdmin: dbUser.is_admin || false };
-    set({ user });
-    try { localStorage.setItem('bt_session', JSON.stringify(user)); } catch {}
-    return null; // success
+    const profile = await getProfile(data.user.id);
+    set({ loading: false });
+    if (!profile) return 'Profil introuvable.';
+
+    set({
+      user: {
+        id: data.user.id,
+        name: profile.username,
+        email: data.user.email,
+        bankroll: parseFloat(profile.bankroll) || 200,
+        isAdmin: profile.is_admin || false,
+      },
+    });
+    return null;
   },
 
   /* ── Register ────────────────────────────────── */
-  async register(username, password, bankroll) {
+  async register(email, password, username, bankroll) {
     set({ loading: true });
-    const existing = await getUser(username);
+    const existing = await getProfileByUsername(username);
     if (existing) { set({ loading: false }); return 'Ce pseudo est déjà pris.'; }
-    const hash = await hashPassword(password);
-    const dbUser = await createUser(username, hash, bankroll);
+
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: { username, bankroll: bankroll || 200 } },
+    });
     set({ loading: false });
-    if (!dbUser) return 'Erreur lors de la création du compte.';
-    const user = { name: dbUser.username, bankroll: parseFloat(dbUser.bankroll), isAdmin: dbUser.is_admin || false };
-    set({ user });
-    try { localStorage.setItem('bt_session', JSON.stringify(user)); } catch {}
+    if (error) return error.message;
+    if (!data.user) return 'Erreur lors de la création du compte.';
+
+    // Le trigger handle_new_user crée automatiquement le profil
+    // Petit délai pour laisser le trigger s'exécuter
+    await new Promise(r => setTimeout(r, 500));
+    const profile = await getProfile(data.user.id);
+
+    set({
+      user: {
+        id: data.user.id,
+        name: username,
+        email: data.user.email || email,
+        bankroll: parseFloat(profile?.bankroll) || bankroll || 200,
+        isAdmin: profile?.is_admin || false,
+      },
+    });
     return null;
   },
 
   /* ── Logout ──────────────────────────────────── */
-  logout() {
+  async logout() {
+    await supabase.auth.signOut();
     set({ user: null });
-    try { localStorage.removeItem('bt_session'); } catch {}
   },
 
   /* ── Bankroll ────────────────────────────────── */
   async setBankroll(amount) {
     const { user } = get();
     if (!user) return;
-    const updated = { ...user, bankroll: amount };
-    set({ user: updated });
-    await updateUserBankroll(user.name, amount);
-    try { localStorage.setItem('bt_session', JSON.stringify(updated)); } catch {}
+    set({ user: { ...user, bankroll: amount } });
+    await updateProfile(user.id, { bankroll: amount });
   },
 
   adjustBankroll(delta) {
@@ -75,50 +121,40 @@ const useUserStore = create((set, get) => ({
   },
 
   /* ── Profile updates ─────────────────────────── */
-  async changePassword(oldPass, newPass) {
-    const { user } = get();
-    const dbUser = await getUser(user.name);
-    const oldHash    = await hashPassword(oldPass);
-    const legacyHash = await hashPasswordLegacy(oldPass);
-    if (dbUser.password_hash !== oldHash && dbUser.password_hash !== legacyHash) {
-      return 'Ancien mot de passe incorrect.';
-    }
-    const newHash = await hashPassword(newPass);
-    await updateUser(user.name, { password_hash: newHash });
+  async changePassword(newPass) {
+    const { error } = await supabase.auth.updateUser({ password: newPass });
+    if (error) return error.message;
     return null;
   },
 
   async changeUsername(newName) {
     const { user } = get();
-    const existing = await getUser(newName);
+    const existing = await getProfileByUsername(newName);
     if (existing) return 'Ce pseudo est déjà pris.';
-    await updateUser(user.name, { username: newName });
+    await updateProfile(user.id, { username: newName });
     await updateUserBets(user.name, newName);
-    const updated = { ...user, name: newName };
-    set({ user: updated });
-    try { localStorage.setItem('bt_session', JSON.stringify(updated)); } catch {}
+    await supabase.auth.updateUser({ data: { username: newName } });
+    set({ user: { ...user, name: newName } });
     return null;
   },
 
   async resetBankroll(amount) {
     const { user } = get();
-    await updateUser(user.name, { bankroll: amount, initial_bankroll: amount });
-    const updated = { ...user, bankroll: amount };
-    set({ user: updated });
-    try { localStorage.setItem('bt_session', JSON.stringify(updated)); } catch {}
+    await updateProfile(user.id, { bankroll: amount, initial_bankroll: amount });
+    set({ user: { ...user, bankroll: amount } });
   },
 
   async deleteAccount() {
-    const { user } = get();
-    await deleteUser(user.name);
+    await supabase.rpc('delete_own_account');
+    await supabase.auth.signOut();
     set({ user: null });
-    try { localStorage.removeItem('bt_session'); } catch {}
   },
 
   /* ── Admin ───────────────────────────────────── */
-  async adminResetPassword(username, newPass) {
-    const hash = await hashPassword(newPass);
-    await updateUser(username, { password_hash: hash });
+  async adminSendResetEmail(email) {
+    const { error } = await supabase.auth.resetPasswordForEmail(email);
+    if (error) return error.message;
+    return null;
   },
 }));
 

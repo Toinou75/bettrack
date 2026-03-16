@@ -1,6 +1,8 @@
-import { useState, useMemo } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { fmtD, fmt } from '../utils/format';
 import { exportCSV } from '../utils/betLogic';
+import useBetStore from '../stores/betStore';
+import useUserStore from '../stores/userStore';
 
 const PAGE_SIZE = 20;
 
@@ -8,49 +10,56 @@ const statusLabel = s => s === 'win' ? 'Gagné' : s === 'loss' ? 'Perdu' : 'En c
 const statusBadge = s => s === 'win' ? 'bw' : s === 'loss' ? 'bl' : 'bp';
 
 export default function BetTable({ bets, onEdit, onDelete, onAdd }) {
+  const { user } = useUserStore();
+  const { tableBets, tableTotalCount, tableLoading, fetchTableBets, tableParams, setTableParams } = useBetStore();
+
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('all');
   const [sortCol, setSortCol] = useState(null);
-  const [sortDir, setSortDir] = useState('asc');
+  const [sortDir, setSortDir] = useState('desc');
   const [page, setPage] = useState(1);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const searchTimeout = useRef(null);
 
-  const filtered = useMemo(() => {
-    let list = [...bets];
-    // Status filter
-    if (filter !== 'all') list = list.filter(b => b.status === filter);
-    // Search
-    if (search) {
-      const q = search.toLowerCase();
-      list = list.filter(b => b.match.toLowerCase().includes(q) || b.sport.toLowerCase().includes(q) || b.bookmaker.toLowerCase().includes(q));
-    }
-    // Date filter
-    if (dateFrom) list = list.filter(b => b.created_at >= dateFrom);
-    if (dateTo) list = list.filter(b => b.created_at <= dateTo + 'T23:59:59');
-    // Sort
-    if (sortCol) {
-      list.sort((a, b) => {
-        let va = a[sortCol], vb = b[sortCol];
-        if (typeof va === 'string') { va = va.toLowerCase(); vb = (vb || '').toLowerCase(); }
-        if (va < vb) return sortDir === 'asc' ? -1 : 1;
-        if (va > vb) return sortDir === 'asc' ? 1 : -1;
-        return 0;
-      });
-    }
-    return list;
-  }, [bets, filter, search, dateFrom, dateTo, sortCol, sortDir]);
+  // Sync local state to store params and fetch
+  const doFetch = useCallback((overrides = {}) => {
+    if (!user?.name) return;
+    const params = { page, pageSize: PAGE_SIZE, status: filter, search, dateFrom, dateTo, sortCol, sortDir, ...overrides };
+    setTableParams(params);
+    fetchTableBets(user.name, params);
+  }, [user?.name, page, filter, search, dateFrom, dateTo, sortCol, sortDir, setTableParams, fetchTableBets]);
 
-  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
-  const safePage = Math.min(page, totalPages || 1);
-  const paged = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  // Fetch on mount and when filters change (except search, which is debounced)
+  useEffect(() => {
+    doFetch();
+  }, [page, filter, dateFrom, dateTo, sortCol, sortDir]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleSort = col => {
-    if (sortCol === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
-    else { setSortCol(col); setSortDir('asc'); }
+  // Debounce search
+  const handleSearchChange = (val) => {
+    setSearch(val);
+    setPage(1);
+    if (searchTimeout.current) clearTimeout(searchTimeout.current);
+    searchTimeout.current = setTimeout(() => {
+      doFetch({ search: val, page: 1 });
+    }, 300);
   };
 
-  const clearDates = () => { setDateFrom(''); setDateTo(''); };
+  const totalPages = Math.ceil(tableTotalCount / PAGE_SIZE);
+  const safePage = Math.min(page, totalPages || 1);
+
+  const handleSort = col => {
+    if (sortCol === col) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortCol(col);
+      setSortDir('asc');
+    }
+    setPage(1);
+  };
+
+  const handleFilterChange = f => { setFilter(f); setPage(1); };
+  const clearDates = () => { setDateFrom(''); setDateTo(''); setPage(1); };
 
   // Pagination pages
   const pages = [];
@@ -67,7 +76,7 @@ export default function BetTable({ bets, onEdit, onDelete, onAdd }) {
       <div className="sec-header">
         <div className="sec-title">Historique des paris</div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button className="export-btn" onClick={() => exportCSV(bets)}>📥 Export CSV</button>
+          <button className="export-btn" onClick={() => exportCSV(bets)}>Export CSV</button>
           <button className="btn-primary btn-sm" onClick={onAdd}>+ Nouveau pari</button>
         </div>
       </div>
@@ -75,11 +84,11 @@ export default function BetTable({ bets, onEdit, onDelete, onAdd }) {
       <div className="table-toolbar">
         <div className="search-wrap">
           <span className="search-icon">🔍</span>
-          <input type="text" placeholder="Rechercher…" value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} />
+          <input type="text" placeholder="Rechercher…" value={search} onChange={e => handleSearchChange(e.target.value)} />
         </div>
         <div className="filters">
           {['all', 'pending', 'win', 'loss'].map(f => (
-            <button key={f} className={`fbtn${filter === f ? ' active' : ''}`} onClick={() => { setFilter(f); setPage(1); }}>
+            <button key={f} className={`fbtn${filter === f ? ' active' : ''}`} onClick={() => handleFilterChange(f)}>
               {f === 'all' ? 'Tous' : f === 'pending' ? 'En cours' : f === 'win' ? 'Gagnés' : 'Perdus'}
             </button>
           ))}
@@ -92,6 +101,7 @@ export default function BetTable({ bets, onEdit, onDelete, onAdd }) {
       </div>
 
       <div className="tcard">
+        {tableLoading && <div className="loading-bar" />}
         <div className="tscroll">
           <table>
             <thead>
@@ -112,7 +122,7 @@ export default function BetTable({ bets, onEdit, onDelete, onAdd }) {
               </tr>
             </thead>
             <tbody>
-              {paged.length === 0 && (
+              {tableBets.length === 0 && !tableLoading && (
                 <tr><td colSpan={9}>
                   <div className="empty">
                     <div className="empty-ico">📭</div>
@@ -121,7 +131,7 @@ export default function BetTable({ bets, onEdit, onDelete, onAdd }) {
                   </div>
                 </td></tr>
               )}
-              {paged.map(b => {
+              {tableBets.map(b => {
                 const legs = b.legs ? JSON.parse(b.legs) : null;
                 return (
                   <tr key={b.id}>
@@ -158,7 +168,7 @@ export default function BetTable({ bets, onEdit, onDelete, onAdd }) {
                 : <button key={p} className={`pg-btn${p === safePage ? ' active' : ''}`} onClick={() => setPage(p)}>{p}</button>
             )}
             <button className="pg-btn" disabled={safePage === totalPages} onClick={() => setPage(p => p + 1)}>&gt;</button>
-            <span className="pg-info">{filtered.length} paris</span>
+            <span className="pg-info">{tableTotalCount} paris</span>
           </div>
         )}
       </div>

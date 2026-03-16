@@ -13,7 +13,7 @@ export default function Nav() {
   const location = useLocation();
   const { user, logout } = useUserStore();
 
-  const handleLogout = () => { logout(); navigate('/auth'); };
+  const handleLogout = async () => { await logout(); navigate('/auth'); };
 
   return (
     <nav className="nav">

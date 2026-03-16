@@ -1,4 +1,4 @@
-import { useEffect, lazy, Suspense } from 'react';
+import { useEffect, useState, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import useUserStore from './stores/userStore';
 import Nav from './components/Nav';
@@ -11,22 +11,31 @@ const Leaderboard = lazy(() => import('./pages/Leaderboard'));
 const Profile = lazy(() => import('./pages/Profile'));
 
 function RequireAuth({ children }) {
-  const { user } = useUserStore();
+  const { user, _initialized } = useUserStore();
+  if (!_initialized) return <div className="loading-bar" />;
   if (!user) return <Navigate to="/auth" replace />;
   return children;
 }
 
 function AppLayout() {
-  const { user, restoreSession } = useUserStore();
+  const { user, init, _initialized } = useUserStore();
   const navigate = useNavigate();
   const location = useLocation();
+  const [initializing, setInitializing] = useState(true);
 
   useEffect(() => {
-    const restored = restoreSession();
-    if (!restored && location.pathname !== '/auth') navigate('/auth');
+    init().then(() => setInitializing(false));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  useEffect(() => {
+    if (!initializing && !user && location.pathname !== '/auth') {
+      navigate('/auth');
+    }
+  }, [initializing, user, location.pathname, navigate]);
+
   const isAuth = location.pathname === '/auth';
+
+  if (initializing) return <div className="loading-bar" />;
 
   return (
     <>
