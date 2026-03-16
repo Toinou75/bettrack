@@ -25,15 +25,46 @@ function stripOptCols(row, errMsg) {
   return clean;
 }
 
-export async function selectBets(filter = '') {
+/* ══════════════════════════════════════════════════
+   PROFILES (liées à Supabase Auth)
+   ══════════════════════════════════════════════════ */
+
+export async function getProfile(userId) {
   const { data, error } = await supabase
-    .from('paris')
+    .from('profiles')
     .select('*')
-    .order('created_at', { ascending: false });
-  if (error) return [];
-  if (filter) return data.filter(filter);
+    .eq('id', userId)
+    .single();
+  if (error) return null;
   return data;
 }
+
+export async function getProfileByUsername(username) {
+  const { data } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('username', username)
+    .single();
+  return data;
+}
+
+export async function updateProfile(userId, fields) {
+  const { error } = await supabase.from('profiles').update(fields).eq('id', userId);
+  handleError(error, 'Mise à jour du profil');
+}
+
+export async function getAllProfiles() {
+  const { data } = await supabase.from('profiles').select('username,bankroll,is_admin,id');
+  return data || [];
+}
+
+export async function updateUserBets(oldName, newName) {
+  await supabase.from('paris').update({ user_name: newName }).eq('user_name', oldName);
+}
+
+/* ══════════════════════════════════════════════════
+   PARIS — lecture
+   ══════════════════════════════════════════════════ */
 
 export async function selectUserBets(username) {
   const { data, error } = await supabase
@@ -53,6 +84,39 @@ export async function selectAllBets() {
   handleError(error, 'Chargement du classement');
   return data || [];
 }
+
+/** Pagination serveur pour BetTable */
+export async function selectUserBetsPaginated(username, { page = 1, pageSize = 20, status, search, dateFrom, dateTo, sortCol, sortDir = 'desc' } = {}) {
+  let query = supabase
+    .from('paris')
+    .select('*', { count: 'exact' })
+    .eq('user_name', username);
+
+  if (status && status !== 'all') query = query.eq('status', status);
+  if (search) {
+    query = query.or(`match.ilike.%${search}%,sport.ilike.%${search}%,bookmaker.ilike.%${search}%`);
+  }
+  if (dateFrom) query = query.gte('created_at', dateFrom);
+  if (dateTo) query = query.lte('created_at', dateTo + 'T23:59:59');
+
+  if (sortCol) {
+    query = query.order(sortCol, { ascending: sortDir === 'asc' });
+  } else {
+    query = query.order('created_at', { ascending: false });
+  }
+
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+  query = query.range(from, to);
+
+  const { data, error, count } = await query;
+  handleError(error, 'Chargement des paris');
+  return { data: data || [], count: count || 0 };
+}
+
+/* ══════════════════════════════════════════════════
+   PARIS — CRUD
+   ══════════════════════════════════════════════════ */
 
 export async function insertBet(row) {
   const { data, error } = await supabase.from('paris').insert(row).select();
@@ -83,41 +147,16 @@ export async function deleteBet(id) {
   handleError(error, 'Suppression du pari');
 }
 
-export async function getUser(username) {
-  const { data } = await supabase
-    .from('users')
-    .select('*')
-    .eq('username', username)
-    .single();
-  return data;
-}
+/* ══════════════════════════════════════════════════
+   LEADERBOARD (RPC serveur)
+   ══════════════════════════════════════════════════ */
 
-export async function createUser(username, passwordHash, bankroll) {
-  const { data } = await supabase.from('users').insert({
-    username, password_hash: passwordHash, bankroll,
-    initial_bankroll: bankroll, is_admin: username === 'Toinou75'
-  }).select().single();
-  return data;
-}
-
-export async function updateUserBankroll(username, bankroll) {
-  await supabase.from('users').update({ bankroll }).eq('username', username);
-}
-
-export async function updateUser(username, fields) {
-  await supabase.from('users').update(fields).eq('username', username);
-}
-
-export async function updateUserBets(oldName, newName) {
-  await supabase.from('paris').update({ user_name: newName }).eq('user_name', oldName);
-}
-
-export async function deleteUser(username) {
-  await supabase.from('paris').delete().eq('user_name', username);
-  await supabase.from('users').delete().eq('username', username);
-}
-
-export async function getAllUsers() {
-  const { data } = await supabase.from('users').select('username,bankroll,is_admin');
+export async function getLeaderboard() {
+  const { data, error } = await supabase.rpc('get_leaderboard');
+  if (error) {
+    // Fallback: si la RPC n'existe pas encore, on retourne []
+    console.warn('[Supabase] get_leaderboard RPC not available, falling back');
+    return null; // signal pour le composant d'utiliser le fallback
+  }
   return data || [];
 }
