@@ -4,7 +4,11 @@ import { toast } from '../components/Toast';
 const SUPA_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPA_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-export const supabase = createClient(SUPA_URL, SUPA_KEY);
+if (!SUPA_URL || !SUPA_KEY) {
+  console.error('[BetTrack] Variables d\'environnement manquantes. VITE_SUPABASE_URL:', !!SUPA_URL, 'VITE_SUPABASE_ANON_KEY:', !!SUPA_KEY);
+}
+
+export const supabase = createClient(SUPA_URL || 'https://placeholder.supabase.co', SUPA_KEY || 'placeholder');
 
 function handleError(error, context) {
   if (error) {
