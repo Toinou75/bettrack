@@ -39,6 +39,17 @@ export function computeStats(bets) {
     if (b.status === 'win') sp.wins++; else sp.losses++;
   });
 
+  // Breakdown par type de pari
+  const byBetType = {};
+  closed.forEach(b => {
+    const t = b.bet_type || 'Non défini';
+    if (!byBetType[t]) byBetType[t] = { pnl: 0, wins: 0, losses: 0, staked: 0, count: 0 };
+    const bt = byBetType[t];
+    bt.pnl += b.pnl; bt.count++;
+    if (!b.is_freebet) bt.staked += b.stake;
+    if (b.status === 'win') bt.wins++; else bt.losses++;
+  });
+
   // CLV
   const clvBets = closed.filter(b => b.closing_odds && b.odds);
   const avgCLV  = clvBets.length
@@ -51,7 +62,7 @@ export function computeStats(bets) {
     rate: closed.length ? ((wins / closed.length) * 100).toFixed(1) : null,
     roi: staked > 0 ? ((pnl / staked) * 100).toFixed(1) : null,
     fbCount: freebets.length, fbGain,
-    byBook, bySport, avgCLV, clvCount: clvBets.length,
+    byBook, bySport, byBetType, avgCLV, clvCount: clvBets.length,
   };
 }
 
@@ -98,11 +109,11 @@ export function checkMoneyManagement(stake, bankroll) {
 /* ── CSV export ────────────────────────────────────── */
 export function exportCSV(bets) {
   if (!bets.length) return;
-  const headers = ['Date', 'Match', 'Sport', 'Bookmaker', 'Mise', 'Cote', 'Statut', 'P&L', 'Freebet', 'Cote cloture'];
+  const headers = ['Date', 'Match', 'Sport', 'Type', 'Bookmaker', 'Mise', 'Cote', 'Statut', 'P&L', 'Freebet', 'Cote cloture'];
   const rows = bets.map(b => [
     b.created_at ? new Date(b.created_at).toLocaleDateString('fr-FR') : '',
     '"' + b.match.replace(/"/g, '""') + '"',
-    b.sport, b.bookmaker, b.stake, b.odds || '',
+    b.sport, b.bet_type || '', b.bookmaker, b.stake, b.odds || '',
     b.status === 'win' ? 'Gagné' : b.status === 'loss' ? 'Perdu' : 'En cours',
     b.pnl, b.is_freebet ? 'Oui' : 'Non', b.closing_odds || '',
   ]);

@@ -111,6 +111,7 @@ export default function BetTable({ bets, onEdit, onDelete, onAdd }) {
                 <th className={`sortable${sortCol === 'sport' ? ` sort-${sortDir}` : ''}`} onClick={() => handleSort('sport')}>
                   Sport <span className="sort-icon">↕</span>
                 </th>
+                <th>Type</th>
                 <th className={`sortable${sortCol === 'bookmaker' ? ` sort-${sortDir}` : ''}`} onClick={() => handleSort('bookmaker')}>
                   Book <span className="sort-icon">↕</span>
                 </th>
@@ -123,7 +124,7 @@ export default function BetTable({ bets, onEdit, onDelete, onAdd }) {
             </thead>
             <tbody>
               {tableBets.length === 0 && !tableLoading && (
-                <tr><td colSpan={9}>
+                <tr><td colSpan={10}>
                   <div className="empty">
                     <div className="empty-ico">📭</div>
                     <div className="empty-t">Aucun pari trouvé</div>
@@ -143,6 +144,7 @@ export default function BetTable({ bets, onEdit, onDelete, onAdd }) {
                       {legs && <div className="td-legs">{legs.map(l => l.match).join(' • ')}</div>}
                     </td>
                     <td><span className="sbadge">{b.sport}</span></td>
+                    <td>{b.bet_type ? <span className="sbadge">{b.bet_type}</span> : '—'}</td>
                     <td><span className="sbadge">{b.bookmaker}</span></td>
                     <td>{b.stake.toFixed(2)} €</td>
                     <td>{b.odds ? parseFloat(b.odds.toFixed(2)) : '—'}</td>

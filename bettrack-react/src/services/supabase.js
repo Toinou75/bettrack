@@ -18,7 +18,7 @@ function handleError(error, context) {
 }
 
 // Colonnes optionnelles (fallback si pas encore migrées)
-const OPT_COLS = ['is_freebet', 'closing_odds'];
+const OPT_COLS = ['is_freebet', 'closing_odds', 'bet_type'];
 function stripOptCols(row, errMsg) {
   const clean = { ...row };
   OPT_COLS.forEach(c => { if (errMsg.includes(c)) delete clean[c]; });

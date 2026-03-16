@@ -2,6 +2,19 @@ import { useState, useEffect, useCallback } from 'react';
 import useUserStore from '../stores/userStore';
 import { checkMoneyManagement } from '../utils/betLogic';
 
+const BET_TYPES_BY_SPORT = {
+  Football: ['1X2', 'Double chance', 'Over/Under', 'BTTS', 'Score exact', 'Mi-temps/Fin', 'Buteur', 'Handicap', 'Corners', 'Cartons', 'Autre'],
+  Tennis: ['Vainqueur match', 'Over/Under sets', 'Over/Under jeux', 'Handicap jeux', 'Score exact sets', 'Autre'],
+  Basket: ['Vainqueur match', 'Over/Under', 'Handicap', 'Écart', '1ère mi-temps', 'Autre'],
+  Basketball: ['Vainqueur match', 'Over/Under', 'Handicap', 'Écart', '1ère mi-temps', 'Autre'],
+  Rugby: ['Vainqueur match', 'Handicap', 'Over/Under', 'Score exact', 'Mi-temps/Fin', 'Autre'],
+  Hockey: ['Vainqueur match', 'Over/Under', 'Handicap', 'Score exact', 'Autre'],
+  MMA: ['Vainqueur combat', 'Méthode victoire', 'Round', 'Over/Under rounds', 'Autre'],
+  Boxe: ['Vainqueur combat', 'Méthode victoire', 'Round', 'Over/Under rounds', 'Autre'],
+  eSport: ['Vainqueur match', 'Handicap maps', 'Over/Under maps', 'Autre'],
+  Autre: ['Autre'],
+};
+
 export default function BetModal({ open, bet, onClose, onSubmit }) {
   const { user } = useUserStore();
   const isEdit = !!bet;
@@ -9,6 +22,7 @@ export default function BetModal({ open, bet, onClose, onSubmit }) {
   const [betType, setBetType] = useState('simple');
   const [match, setMatch] = useState('');
   const [sport, setSport] = useState('Football');
+  const [marketType, setMarketType] = useState('');
   const [bookmaker, setBookmaker] = useState('Betclic');
   const [stake, setStake] = useState('');
   const [odds, setOdds] = useState('');
@@ -26,6 +40,7 @@ export default function BetModal({ open, bet, onClose, onSubmit }) {
       setBetType(parsedLegs ? 'combi' : 'simple');
       setMatch(bet.match || '');
       setSport(bet.sport || 'Football');
+      setMarketType(bet.bet_type || '');
       setBookmaker(bet.bookmaker || 'Betclic');
       setStake(bet.stake?.toString() || '');
       setOdds(bet.odds?.toString() || '');
@@ -35,9 +50,9 @@ export default function BetModal({ open, bet, onClose, onSubmit }) {
       setClosingOdds(bet.closing_odds?.toString() || '');
       setLegs(parsedLegs || [{ match: '', odds: '' }]);
     } else {
-      setBetType('simple'); setMatch(''); setSport('Football'); setBookmaker('Betclic');
-      setStake(''); setOdds(''); setStatus('pending'); setPnl(''); setIsFreebet(false);
-      setClosingOdds(''); setLegs([{ match: '', odds: '' }]);
+      setBetType('simple'); setMatch(''); setSport('Football'); setMarketType('');
+      setBookmaker('Betclic'); setStake(''); setOdds(''); setStatus('pending');
+      setPnl(''); setIsFreebet(false); setClosingOdds(''); setLegs([{ match: '', odds: '' }]);
     }
     setDirty(false);
   }, [bet, open]);
@@ -75,6 +90,7 @@ export default function BetModal({ open, bet, onClose, onSubmit }) {
       user_name: user.name,
       match: finalMatch,
       sport,
+      bet_type: marketType || null,
       bookmaker,
       stake: stakeNum,
       odds: finalOdds,
@@ -143,8 +159,16 @@ export default function BetModal({ open, bet, onClose, onSubmit }) {
 
           <div className="form-field">
             <label>Sport</label>
-            <select value={sport} onChange={e => { setSport(e.target.value); markDirty(); }}>
+            <select value={sport} onChange={e => { setSport(e.target.value); setMarketType(''); markDirty(); }}>
               {['Football', 'Tennis', 'Basket', 'Rugby', 'Hockey', 'MMA', 'Boxe', 'eSport', 'Autre'].map(s => <option key={s}>{s}</option>)}
+            </select>
+          </div>
+
+          <div className="form-field">
+            <label>Type de pari</label>
+            <select value={marketType} onChange={e => { setMarketType(e.target.value); markDirty(); }}>
+              <option value="">—</option>
+              {(BET_TYPES_BY_SPORT[sport] || BET_TYPES_BY_SPORT.Autre).map(t => <option key={t} value={t}>{t}</option>)}
             </select>
           </div>
 

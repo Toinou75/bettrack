@@ -35,6 +35,7 @@ export default function Breakdowns({ stats }) {
     <>
       <BreakdownGrid title="Par bookmaker" icon="📚" data={stats.byBook} />
       <BreakdownGrid title="Par sport" icon="⚽" data={stats.bySport} />
+      {stats.byBetType && <BreakdownGrid title="Par type de pari" icon="🎯" data={stats.byBetType} />}
     </>
   );
 }
