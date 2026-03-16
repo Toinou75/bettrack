@@ -163,9 +163,12 @@ tr:hover td{background:var(--bg3)}
 /* ── LEGS (COMBINÉ) ────────────────────────────────── */
 .legs-section{border:1px solid var(--border2);border-radius:10px;padding:1rem;background:var(--bg3)}
 .legs-title{font-size:11px;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:0.6px;margin-bottom:10px}
-.leg-row{display:flex;gap:8px;align-items:center;margin-bottom:8px}
-.leg-row input{flex:1}.leg-row .leg-odds{width:80px;flex-shrink:0}
-.leg-row button{flex-shrink:0;padding:5px 8px}
+.leg-row{display:flex;flex-direction:column;gap:4px;margin-bottom:10px}
+.leg-main{display:flex;gap:8px;align-items:center}
+.leg-main input{flex:1}.leg-main .leg-odds{width:80px;flex-shrink:0}
+.leg-main button{flex-shrink:0;padding:5px 8px}
+.leg-details{display:flex;gap:6px}
+.leg-details select{flex:1;font-size:12px;padding:5px 8px;color:var(--text2)}
 .add-leg-btn{font-size:12px;color:var(--accent);border:1px dashed rgba(124,107,255,.4);background:transparent;width:100%;padding:7px;border-radius:8px;margin-top:4px}
 .add-leg-btn:hover{background:rgba(124,107,255,.08)}
 .combined-odds-display{font-size:12px;color:var(--text2);margin-top:10px;padding-top:10px;border-top:1px solid var(--border)}
