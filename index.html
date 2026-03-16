@@ -221,6 +221,20 @@ code { background:var(--bg4); padding:1px 6px; border-radius:4px; font-size:12px
 .confirm-sub { font-size:13px; color:var(--text2); margin-bottom:1.5rem; }
 .confirm-actions { display:flex; gap:10px; justify-content:center; }
  
+/* PROFILE */
+.profile-card { background:var(--bg2); border:1px solid var(--border); border-radius:12px; padding:1.5rem; margin-bottom:1.5rem; }
+.profile-header { display:flex; align-items:center; gap:1rem; }
+.profile-avatar { width:56px; height:56px; border-radius:50%; background:var(--accent); display:flex; align-items:center; justify-content:center; font-family:'Syne',sans-serif; font-size:20px; font-weight:700; color:#fff; flex-shrink:0; }
+.profile-name { font-family:'Syne',sans-serif; font-size:20px; font-weight:700; }
+.profile-sub { font-size:13px; color:var(--text3); margin-top:2px; }
+.profile-section { background:var(--bg2); border:1px solid var(--border); border-radius:12px; padding:1.25rem; margin-bottom:1rem; }
+.profile-section-title { font-size:13px; font-weight:600; color:var(--text2); text-transform:uppercase; letter-spacing:0.6px; margin-bottom:10px; }
+.profile-form { display:flex; gap:8px; align-items:center; }
+.profile-form input { flex:1; max-width:280px; }
+.profile-form-col { display:flex; flex-direction:column; gap:8px; max-width:320px; }
+.success-msg { font-size:12px; color:var(--green); margin-top:6px; display:none; }
+.success-msg.show { display:block; }
+
 /* BREAKDOWN TABLES */
 .breakdown-section { margin-bottom:2rem; }
 .breakdown-title { font-family:'Syne',sans-serif; font-size:16px; font-weight:700; margin-bottom:10px; display:flex; align-items:center; gap:8px; }
@@ -305,6 +319,7 @@ code { background:var(--bg4); padding:1px 6px; border-radius:4px; font-size:12px
     <div class="nav-tabs">
       <button class="nav-tab active" data-tab="dash">Mon tableau de bord</button>
       <button class="nav-tab" data-tab="lb">Classement</button>
+      <button class="nav-tab" data-tab="profil">Profil</button>
     </div>
     <div class="nav-right">
       <div class="avatar" id="nav-av"></div>
@@ -439,6 +454,69 @@ code { background:var(--bg4); padding:1px 6px; border-radius:4px; font-size:12px
       <div class="info-box">
         <strong>Comment partager ?</strong><br>
         Envoie simplement l'URL de l'app à tes potes : <strong>bettrack-red.vercel.app</strong>. Chacun crée son profil et les paris sont synchronisés en temps réel via Supabase.
+      </div>
+    </div>
+
+    <!-- PROFIL -->
+    <div id="tab-profil" class="tab-content">
+      <div class="sec-title" style="margin-bottom:1.5rem">Mon profil</div>
+
+      <div class="profile-card">
+        <div class="profile-header">
+          <div class="profile-avatar" id="prof-av"></div>
+          <div>
+            <div class="profile-name" id="prof-name"></div>
+            <div class="profile-sub" id="prof-sub"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Changer pseudo -->
+      <div class="profile-section">
+        <div class="profile-section-title">Changer de pseudo</div>
+        <div class="profile-form">
+          <input type="text" id="prof-newname" placeholder="Nouveau pseudo" autocomplete="off">
+          <button class="btn-primary btn-sm" id="prof-save-name">Modifier</button>
+        </div>
+        <div class="error-msg" id="prof-name-err"></div>
+        <div class="success-msg" id="prof-name-ok"></div>
+      </div>
+
+      <!-- Changer mot de passe -->
+      <div class="profile-section">
+        <div class="profile-section-title">Changer de mot de passe</div>
+        <div class="profile-form-col">
+          <input type="password" id="prof-oldpass" placeholder="Mot de passe actuel">
+          <input type="password" id="prof-newpass" placeholder="Nouveau mot de passe (min. 6 car.)">
+          <input type="password" id="prof-newpass2" placeholder="Confirmer le nouveau mot de passe">
+          <button class="btn-primary btn-sm" id="prof-save-pass">Modifier le mot de passe</button>
+        </div>
+        <div class="error-msg" id="prof-pass-err"></div>
+        <div class="success-msg" id="prof-pass-ok"></div>
+      </div>
+
+      <!-- Reset bankroll -->
+      <div class="profile-section">
+        <div class="profile-section-title">Bankroll initiale</div>
+        <div class="profile-form">
+          <input type="number" id="prof-bank" placeholder="200" min="0" step="1">
+          <button class="btn-primary btn-sm" id="prof-save-bank">Mettre à jour</button>
+        </div>
+        <div style="font-size:11px;color:var(--text3);margin-top:4px">Recalcule ta bankroll en partant de ce montant + tous tes P&L.</div>
+        <div class="error-msg" id="prof-bank-err"></div>
+        <div class="success-msg" id="prof-bank-ok"></div>
+      </div>
+
+      <!-- Admin: reset mdp d'un pote -->
+      <div class="profile-section" id="prof-admin-section" style="display:none">
+        <div class="profile-section-title" style="color:var(--amber)">Admin — Reset mot de passe d'un utilisateur</div>
+        <div class="profile-form-col">
+          <input type="text" id="admin-reset-user" placeholder="Pseudo de l'utilisateur" autocomplete="off">
+          <input type="password" id="admin-reset-pass" placeholder="Nouveau mot de passe">
+          <button class="btn-primary btn-sm" style="background:var(--amber);border-color:var(--amber)" id="admin-reset-btn">Reset le mot de passe</button>
+        </div>
+        <div class="error-msg" id="admin-reset-err"></div>
+        <div class="success-msg" id="admin-reset-ok"></div>
       </div>
     </div>
   </div>
@@ -753,6 +831,12 @@ window.addEventListener('DOMContentLoaded',()=>{
  
   $('btn-add').addEventListener('click',()=>openModal(null));
   $('btn-export').addEventListener('click',exportCSV);
+
+  // Profil bindings
+  $('prof-save-name').addEventListener('click',changeUsername);
+  $('prof-save-pass').addEventListener('click',changePassword);
+  $('prof-save-bank').addEventListener('click',resetBankroll);
+  $('admin-reset-btn').addEventListener('click',adminResetPassword);
   $('modal-cancel').addEventListener('click',closeModal);
   $('modal-ok').addEventListener('click',submitBet);
   $('modal').addEventListener('click',e=>{if(e.target===$('modal'))closeModal();});
@@ -864,7 +948,7 @@ function switchTab(tab){
   document.querySelectorAll('.nav-tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
   document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));
   $('tab-'+tab).classList.add('active');
-  if(tab==='lb')renderLB(); if(tab==='dash')renderDash();
+  if(tab==='lb')renderLB(); if(tab==='dash')renderDash(); if(tab==='profil')renderProfil();
 }
  
 // ── DASHBOARD ──────────────────────────────────────────────────
@@ -1307,6 +1391,96 @@ async function saveBR(){
 }
  
  
+// ── PROFIL ─────────────────────────────────────────────────────
+function renderProfil(){
+  $('prof-av').textContent=ini(user.name);
+  $('prof-name').textContent=user.name;
+  const s=computeStats(allBets);
+  $('prof-sub').textContent=s.total+' paris · Bankroll : '+user.bankroll.toFixed(2)+' €';
+  $('prof-newname').value='';
+  $('prof-oldpass').value=''; $('prof-newpass').value=''; $('prof-newpass2').value='';
+  // Show admin section if admin
+  if(user.isAdmin) $('prof-admin-section').style.display='';
+  else $('prof-admin-section').style.display='none';
+  // Pre-fill bankroll
+  const initialBR = user.bankroll + s.pendingStaked - s.pnl;
+  $('prof-bank').value=initialBR.toFixed(0);
+  // Clear messages
+  ['prof-name-err','prof-name-ok','prof-pass-err','prof-pass-ok','prof-bank-err','prof-bank-ok','admin-reset-err','admin-reset-ok'].forEach(id=>{
+    $(id).classList.remove('show'); $(id).textContent='';
+  });
+}
+
+async function changeUsername(){
+  const newName=$('prof-newname').value.trim();
+  const errEl=$('prof-name-err'), okEl=$('prof-name-ok');
+  errEl.classList.remove('show'); okEl.classList.remove('show');
+  if(!newName){errEl.textContent='Entre un pseudo.';errEl.classList.add('show');return;}
+  if(newName===user.name){errEl.textContent='C\'est déjà ton pseudo.';errEl.classList.add('show');return;}
+  // Check if taken
+  const existing=await sbGetUser(newName);
+  if(existing){errEl.textContent='Ce pseudo est déjà pris.';errEl.classList.add('show');return;}
+  // Update username in users table
+  await fetch(SUPA_URL+'/rest/v1/users?username=eq.'+encodeURIComponent(user.name),{method:'PATCH',headers:SUPA_HEADERS,body:JSON.stringify({username:newName})});
+  // Update all bets
+  await fetch(SUPA_URL+'/rest/v1/paris?user_name=eq.'+encodeURIComponent(user.name),{method:'PATCH',headers:SUPA_HEADERS,body:JSON.stringify({user_name:newName})});
+  user.name=newName;
+  try{const s=JSON.parse(localStorage.getItem('bt_session')||'{}');s.name=newName;localStorage.setItem('bt_session',JSON.stringify(s));}catch{}
+  $('nav-av').textContent=ini(newName); $('nav-nm').textContent=newName;
+  okEl.textContent='Pseudo modifié !'; okEl.classList.add('show');
+  $('prof-newname').value='';
+  renderProfil();
+}
+
+async function changePassword(){
+  const oldP=$('prof-oldpass').value, newP=$('prof-newpass').value, newP2=$('prof-newpass2').value;
+  const errEl=$('prof-pass-err'), okEl=$('prof-pass-ok');
+  errEl.classList.remove('show'); okEl.classList.remove('show');
+  if(!oldP||!newP){errEl.textContent='Remplis tous les champs.';errEl.classList.add('show');return;}
+  if(newP.length<6){errEl.textContent='Min. 6 caractères.';errEl.classList.add('show');return;}
+  if(newP!==newP2){errEl.textContent='Les mots de passe ne correspondent pas.';errEl.classList.add('show');return;}
+  // Verify old password
+  const oldHash=await hashPassword(oldP);
+  const dbUser=await sbGetUser(user.name);
+  if(!dbUser||dbUser.password_hash!==oldHash){errEl.textContent='Mot de passe actuel incorrect.';errEl.classList.add('show');return;}
+  // Update
+  const newHash=await hashPassword(newP);
+  await fetch(SUPA_URL+'/rest/v1/users?username=eq.'+encodeURIComponent(user.name),{method:'PATCH',headers:SUPA_HEADERS,body:JSON.stringify({password_hash:newHash})});
+  okEl.textContent='Mot de passe modifié !'; okEl.classList.add('show');
+  $('prof-oldpass').value=''; $('prof-newpass').value=''; $('prof-newpass2').value='';
+}
+
+async function resetBankroll(){
+  const newInit=parseFloat($('prof-bank').value);
+  const errEl=$('prof-bank-err'), okEl=$('prof-bank-ok');
+  errEl.classList.remove('show'); okEl.classList.remove('show');
+  if(isNaN(newInit)||newInit<0){errEl.textContent='Montant invalide.';errEl.classList.add('show');return;}
+  // Recalculate: new bankroll = newInit + sum of all betEffects
+  const totalEffect=allBets.reduce((a,b)=>a+betEffect(b.status,parseFloat(b.pnl||0),parseFloat(b.stake||0),!!b.is_freebet),0);
+  const nb=parseFloat((newInit+totalEffect).toFixed(2));
+  user.bankroll=nb;
+  await sbUpdateUserBankroll(user.name,nb);
+  await fetch(SUPA_URL+'/rest/v1/users?username=eq.'+encodeURIComponent(user.name),{method:'PATCH',headers:SUPA_HEADERS,body:JSON.stringify({initial_bankroll:newInit})});
+  try{const s=JSON.parse(localStorage.getItem('bt_session')||'{}');s.bankroll=nb;localStorage.setItem('bt_session',JSON.stringify(s));}catch{}
+  okEl.textContent='Bankroll recalculée : '+nb.toFixed(2)+' €'; okEl.classList.add('show');
+  renderProfil();
+}
+
+async function adminResetPassword(){
+  const target=$('admin-reset-user').value.trim();
+  const newP=$('admin-reset-pass').value;
+  const errEl=$('admin-reset-err'), okEl=$('admin-reset-ok');
+  errEl.classList.remove('show'); okEl.classList.remove('show');
+  if(!target||!newP){errEl.textContent='Remplis tous les champs.';errEl.classList.add('show');return;}
+  if(newP.length<6){errEl.textContent='Min. 6 caractères.';errEl.classList.add('show');return;}
+  const dbUser=await sbGetUser(target);
+  if(!dbUser){errEl.textContent='Utilisateur introuvable.';errEl.classList.add('show');return;}
+  const newHash=await hashPassword(newP);
+  await fetch(SUPA_URL+'/rest/v1/users?username=eq.'+encodeURIComponent(target),{method:'PATCH',headers:SUPA_HEADERS,body:JSON.stringify({password_hash:newHash})});
+  okEl.textContent='Mot de passe de '+target+' réinitialisé !'; okEl.classList.add('show');
+  $('admin-reset-user').value=''; $('admin-reset-pass').value='';
+}
+
 // ── LEADERBOARD ────────────────────────────────────────────────
 async function renderLB(){
   $('lb-list').innerHTML='<div class="empty"><div class="empty-ico" style="opacity:1">⏳</div><div class="empty-t">Chargement...</div></div>';
