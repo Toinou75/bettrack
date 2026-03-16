@@ -10,13 +10,13 @@
 body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:15px;min-height:100vh}
 
 /* ── FORM ELEMENTS ─────────────────────────────────── */
-input[type="text"],input[type="number"],input[type="password"],input[type="date"],select{
+input[type="text"],input[type="email"],input[type="number"],input[type="password"],input[type="date"],select{
   display:block;width:100%;padding:10px 13px;
   background:var(--bg3);border:1px solid var(--border2);border-radius:8px;
   color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;line-height:1.4;
   -webkit-appearance:none;appearance:none;
 }
-input[type="text"]:focus,input[type="number"]:focus,input[type="password"]:focus,input[type="date"]:focus,select:focus{outline:2px solid var(--accent);outline-offset:0;border-color:var(--accent)}
+input[type="text"]:focus,input[type="email"]:focus,input[type="number"]:focus,input[type="password"]:focus,input[type="date"]:focus,select:focus{outline:2px solid var(--accent);outline-offset:0;border-color:var(--accent)}
 input::placeholder{color:var(--text3)}
 select{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%239090a8' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px}
 label{display:block;font-size:11px;color:var(--text2);font-weight:500;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.6px}
