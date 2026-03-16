@@ -32,10 +32,10 @@ function BreakdownGrid({ title, icon, data }) {
 export default function Breakdowns({ stats }) {
   if (!stats) return null;
   return (
-    <>
+    <div className="breakdowns-row">
       <BreakdownGrid title="Par bookmaker" icon="📚" data={stats.byBook} />
       <BreakdownGrid title="Par sport" icon="⚽" data={stats.bySport} />
       {stats.byBetType && <BreakdownGrid title="Par type de pari" icon="🎯" data={stats.byBetType} />}
-    </>
+    </div>
   );
 }
