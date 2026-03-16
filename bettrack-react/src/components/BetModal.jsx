@@ -5,13 +5,13 @@ import { checkMoneyManagement } from '../utils/betLogic';
 const BET_TYPES_BY_SPORT = {
   Football: ['1X2', 'Double chance', 'Over/Under', 'BTTS', 'Score exact', 'Mi-temps/Fin', 'Buteur', 'Handicap', 'Corners', 'Cartons', 'Autre'],
   Tennis: ['Vainqueur match', 'Over/Under sets', 'Over/Under jeux', 'Handicap jeux', 'Score exact sets', 'Autre'],
-  Basket: ['Vainqueur match', 'Over/Under', 'Handicap', 'Écart', '1ère mi-temps', 'Autre'],
-  Basketball: ['Vainqueur match', 'Over/Under', 'Handicap', 'Écart', '1ère mi-temps', 'Autre'],
-  Rugby: ['Vainqueur match', 'Handicap', 'Over/Under', 'Score exact', 'Mi-temps/Fin', 'Autre'],
-  Hockey: ['Vainqueur match', 'Over/Under', 'Handicap', 'Score exact', 'Autre'],
+  Basket: ['Vainqueur match', 'Handicap', 'Over/Under points', 'Écart', '1ère mi-temps', 'Props Points', 'Props Rebonds', 'Props Passes', 'Props 3-points', 'Props Pts+Reb+Ast', 'Props Double-double', 'Props Triple-double', 'Props Contres', 'Props Interceptions', 'Autre'],
+  Basketball: ['Vainqueur match', 'Handicap', 'Over/Under points', 'Écart', '1ère mi-temps', 'Props Points', 'Props Rebonds', 'Props Passes', 'Props 3-points', 'Props Pts+Reb+Ast', 'Props Double-double', 'Props Triple-double', 'Props Contres', 'Props Interceptions', 'Autre'],
+  Rugby: ['Vainqueur match', 'Handicap', 'Over/Under', 'Score exact', 'Mi-temps/Fin', 'Essais', 'Autre'],
+  Hockey: ['Vainqueur match', 'Over/Under', 'Handicap', 'Score exact', 'Props Buts', 'Props Tirs', 'Autre'],
   MMA: ['Vainqueur combat', 'Méthode victoire', 'Round', 'Over/Under rounds', 'Autre'],
   Boxe: ['Vainqueur combat', 'Méthode victoire', 'Round', 'Over/Under rounds', 'Autre'],
-  eSport: ['Vainqueur match', 'Handicap maps', 'Over/Under maps', 'Autre'],
+  eSport: ['Vainqueur match', 'Handicap maps', 'Over/Under maps', 'Props Kills', 'Autre'],
   Autre: ['Autre'],
 };
 
