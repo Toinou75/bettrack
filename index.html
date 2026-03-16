@@ -235,6 +235,26 @@ code { background:var(--bg4); padding:1px 6px; border-radius:4px; font-size:12px
 .success-msg { font-size:12px; color:var(--green); margin-top:6px; display:none; }
 .success-msg.show { display:block; }
 
+/* MOBILE BOTTOM NAV */
+.bottom-nav { display:none; position:fixed; bottom:0; left:0; right:0; background:var(--bg2); border-top:1px solid var(--border); z-index:50; padding:6px 0 env(safe-area-inset-bottom,6px); }
+.bottom-nav-inner { display:flex; justify-content:space-around; }
+.bnav-btn { display:flex; flex-direction:column; align-items:center; gap:2px; background:none; border:none; color:var(--text3); font-size:10px; padding:4px 8px; cursor:pointer; }
+.bnav-btn.active { color:var(--accent); }
+.bnav-btn .bnav-ico { font-size:18px; }
+
+/* PAGINATION */
+.pagination { display:flex; align-items:center; justify-content:center; gap:8px; padding:12px; border-top:1px solid var(--border); }
+.pg-btn { padding:4px 10px; font-size:12px; border:1px solid var(--border2); border-radius:6px; background:transparent; color:var(--text2); cursor:pointer; }
+.pg-btn:hover { background:var(--bg4); }
+.pg-btn.active { background:var(--accent); border-color:var(--accent); color:#fff; }
+.pg-btn:disabled { opacity:0.3; cursor:default; }
+.pg-info { font-size:12px; color:var(--text3); }
+
+/* DATE FILTER */
+.date-filter { display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+.date-filter input { width:130px; font-size:12px; padding:5px 8px; }
+.date-filter .fbtn { white-space:nowrap; }
+
 /* BREAKDOWN TABLES */
 .breakdown-section { margin-bottom:2rem; }
 .breakdown-title { font-family:'Syne',sans-serif; font-size:16px; font-weight:700; margin-bottom:10px; display:flex; align-items:center; gap:8px; }
@@ -257,10 +277,12 @@ code { background:var(--bg4); padding:1px 6px; border-radius:4px; font-size:12px
 .export-btn:hover { background:var(--bg4); color:var(--text); }
 
 @media(max-width:600px){
-  .main{padding:1rem} .nav{padding:0 1rem} .nav-tabs{display:none}
+  .main{padding:1rem;padding-bottom:80px} .nav{padding:0 1rem} .nav-tabs{display:none}
+  .bottom-nav{display:block}
   .form2{grid-template-columns:1fr} .metrics{grid-template-columns:1fr 1fr}
   .lb-stats{display:none} .insights{grid-template-columns:1fr 1fr}
   .breakdown-grid{grid-template-columns:1fr}
+  .date-filter input{width:110px}
 }
 </style>
 </head>
@@ -410,6 +432,16 @@ code { background:var(--bg4); padding:1px 6px; border-radius:4px; font-size:12px
         </div>
         <div class="filters" id="filters"></div>
       </div>
+      <div class="table-toolbar">
+        <div class="date-filter">
+          <button class="fbtn" id="df-all">Tout</button>
+          <button class="fbtn" id="df-week">7j</button>
+          <button class="fbtn" id="df-month">30j</button>
+          <input type="date" id="df-from" title="Du">
+          <span style="color:var(--text3);font-size:12px">→</span>
+          <input type="date" id="df-to" title="Au">
+        </div>
+      </div>
  
       <div class="tcard">
         <div id="empty-state" class="empty">
@@ -422,8 +454,8 @@ code { background:var(--bg4); padding:1px 6px; border-radius:4px; font-size:12px
             <thead>
               <tr>
                 <th class="sortable" data-col="match">Match <span class="sort-icon">↕</span></th>
-                <th>Sport</th>
-                <th>Book</th>
+                <th class="sortable" data-col="sport">Sport <span class="sort-icon">↕</span></th>
+                <th class="sortable" data-col="book">Book <span class="sort-icon">↕</span></th>
                 <th class="sortable" data-col="stake">Mise <span class="sort-icon">↕</span></th>
                 <th>Cote</th>
                 <th class="sortable" data-col="pnl">P&L <span class="sort-icon">↕</span></th>
@@ -435,6 +467,7 @@ code { background:var(--bg4); padding:1px 6px; border-radius:4px; font-size:12px
             <tbody id="tbody"></tbody>
           </table>
         </div>
+        <div class="pagination" id="pagination"></div>
       </div>
     </div>
  
@@ -518,6 +551,23 @@ code { background:var(--bg4); padding:1px 6px; border-radius:4px; font-size:12px
         <div class="error-msg" id="admin-reset-err"></div>
         <div class="success-msg" id="admin-reset-ok"></div>
       </div>
+
+      <!-- Supprimer mon compte -->
+      <div class="profile-section" style="border-color:rgba(255,77,106,.3)">
+        <div class="profile-section-title" style="color:var(--red)">Zone dangereuse</div>
+        <div style="font-size:13px;color:var(--text3);margin-bottom:10px">Supprime ton compte et tous tes paris. Cette action est irréversible.</div>
+        <button class="btn-primary btn-sm" style="background:var(--red);border-color:var(--red)" id="prof-delete-account">Supprimer mon compte</button>
+        <div class="error-msg" id="prof-del-err"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom nav mobile -->
+  <div class="bottom-nav">
+    <div class="bottom-nav-inner">
+      <button class="bnav-btn active" data-tab="dash"><span class="bnav-ico">📊</span>Dashboard</button>
+      <button class="bnav-btn" data-tab="lb"><span class="bnav-ico">🏆</span>Classement</button>
+      <button class="bnav-btn" data-tab="profil"><span class="bnav-ico">👤</span>Profil</button>
     </div>
   </div>
 </div>
@@ -699,10 +749,17 @@ async function sbGetAllUsers() {
  
 // Simple hash (not cryptographic but sufficient for this use case)
 async function hashPassword(password) {
+  const enc=new TextEncoder();
+  const keyMaterial=await crypto.subtle.importKey('raw',enc.encode(password),{name:'PBKDF2'},false,['deriveBits']);
+  const salt=enc.encode('bettrack_salt_2024');
+  const bits=await crypto.subtle.deriveBits({name:'PBKDF2',salt,iterations:100000,hash:'SHA-256'},keyMaterial,256);
+  return Array.from(new Uint8Array(bits)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+// Legacy hash for migration (old SHA-256)
+async function hashPasswordLegacy(password) {
   const msgBuffer = new TextEncoder().encode(password + 'bettrack_salt_2024');
   const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
  
 // localStorage pour bankroll et session uniquement
@@ -719,7 +776,9 @@ const fmt = n => (n>=0?'+':'')+n.toFixed(2)+' €';
 const fmtD = iso => iso ? new Date(iso).toLocaleDateString('fr-FR') : '—';
  
 let user=null, activeFilter='Tous', chart=null, editingId=null, betType='simple';
-let sortCol='date', sortDir='desc', searchQ='', confirmCb=null;
+let sortCol='date', sortDir='desc', searchQ='', confirmCb=null, modalDirty=false;
+let dateFrom=null, dateTo=null, currentPage=1;
+const PAGE_SIZE=20;
 let isFreebet=false;
 let allBets = []; // cache local
  
@@ -837,9 +896,35 @@ window.addEventListener('DOMContentLoaded',()=>{
   $('prof-save-pass').addEventListener('click',changePassword);
   $('prof-save-bank').addEventListener('click',resetBankroll);
   $('admin-reset-btn').addEventListener('click',adminResetPassword);
-  $('modal-cancel').addEventListener('click',closeModal);
+  $('prof-delete-account').addEventListener('click',()=>{
+    confirmCb=()=>deleteAccount();
+    $('confirm-overlay').classList.add('open');
+  });
+
+  // Bottom nav (mobile)
+  document.querySelectorAll('.bnav-btn').forEach(b=>b.addEventListener('click',()=>{
+    document.querySelectorAll('.bnav-btn').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    switchTab(b.dataset.tab);
+  }));
+
+  // Date filters
+  $('df-all').addEventListener('click',()=>{setDateFilter(null,null);$('df-all').classList.add('active');});
+  $('df-week').addEventListener('click',()=>{
+    const d=new Date();d.setDate(d.getDate()-7);
+    setDateFilter(d.toISOString().slice(0,10),null);$('df-week').classList.add('active');
+  });
+  $('df-month').addEventListener('click',()=>{
+    const d=new Date();d.setDate(d.getDate()-30);
+    setDateFilter(d.toISOString().slice(0,10),null);$('df-month').classList.add('active');
+  });
+  $('df-from').addEventListener('change',()=>{setDateFilter($('df-from').value||null,dateTo);});
+  $('df-to').addEventListener('change',()=>{setDateFilter(dateFrom,$('df-to').value||null);});
+  $('modal-cancel').addEventListener('click',tryCloseModal);
   $('modal-ok').addEventListener('click',submitBet);
-  $('modal').addEventListener('click',e=>{if(e.target===$('modal'))closeModal();});
+  $('modal').addEventListener('click',e=>{if(e.target===$('modal'))tryCloseModal();});
+  // Track dirty modal
+  $('modal').querySelectorAll('input,select').forEach(el=>el.addEventListener('input',()=>{modalDirty=true;}));
  
   $('br-edit-btn').addEventListener('click',()=>{
     $('br-view').style.display='none'; $('br-edit-row').style.display='flex';
@@ -889,13 +974,18 @@ async function startOnboard(){
   const pass=$('login-pass').value;
   if(!name||!pass){$('login-error').classList.add('show');$('login-error').textContent='Remplis tous les champs.';return;}
   $('ob-start').textContent='Connexion...'; $('ob-start').disabled=true;
-  const hash = await hashPassword(pass);
   const dbUser = await sbGetUser(name);
+  const hash = await hashPassword(pass);
+  const legacyHash = await hashPasswordLegacy(pass);
   $('ob-start').textContent='Se connecter →'; $('ob-start').disabled=false;
-  if(!dbUser||dbUser.password_hash!==hash){
+  if(!dbUser||(dbUser.password_hash!==hash&&dbUser.password_hash!==legacyHash)){
     $('login-error').classList.add('show');
     $('login-error').textContent='Pseudo ou mot de passe incorrect.';
     return;
+  }
+  // Migrate legacy hash to PBKDF2
+  if(dbUser.password_hash===legacyHash&&dbUser.password_hash!==hash){
+    await fetch(SUPA_URL+'/rest/v1/users?username=eq.'+encodeURIComponent(name),{method:'PATCH',headers:SUPA_HEADERS,body:JSON.stringify({password_hash:hash})});
   }
   $('login-error').classList.remove('show');
   user={name:dbUser.username, bankroll:parseFloat(dbUser.bankroll)||200, isAdmin:dbUser.is_admin||false};
@@ -946,6 +1036,7 @@ function showLoading(on){
  
 function switchTab(tab){
   document.querySelectorAll('.nav-tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
+  document.querySelectorAll('.bnav-btn').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
   document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));
   $('tab-'+tab).classList.add('active');
   if(tab==='lb')renderLB(); if(tab==='dash')renderDash(); if(tab==='profil')renderProfil();
@@ -1137,12 +1228,18 @@ function renderTable(){
     return b.match.toLowerCase().includes(q)||b.sport.toLowerCase().includes(q)||b.bookmaker.toLowerCase().includes(q)||(b.legs&&b.legs.some(l=>l.match.toLowerCase().includes(q)));
   });
  
+  // Date filter
+  if(dateFrom){const d=new Date(dateFrom);filtered=filtered.filter(b=>new Date(b.created_at)>=d);}
+  if(dateTo){const d=new Date(dateTo);d.setDate(d.getDate()+1);filtered=filtered.filter(b=>new Date(b.created_at)<d);}
+
   // Sort
   filtered.sort((a,b)=>{
     let av,bv;
     if(sortCol==='date'){av=new Date(a.created_at);bv=new Date(b.created_at);}
     else if(sortCol==='stake'){av=a.stake;bv=b.stake;}
     else if(sortCol==='pnl'){av=a.pnl;bv=b.pnl;}
+    else if(sortCol==='sport'){av=a.sport.toLowerCase();bv=b.sport.toLowerCase();}
+    else if(sortCol==='book'){av=a.bookmaker.toLowerCase();bv=b.bookmaker.toLowerCase();}
     else{av=a.match.toLowerCase();bv=b.match.toLowerCase();}
     return sortDir==='asc'?(av>bv?1:-1):(av<bv?1:-1);
   });
@@ -1153,15 +1250,22 @@ function renderTable(){
     if(th.dataset.col===sortCol) th.classList.add('sort-'+sortDir);
   });
  
-  $('bet-count').textContent='('+bets.length+')';
- 
+  $('bet-count').textContent='('+filtered.length+(filtered.length!==bets.length?' / '+bets.length:'')+')';
+
   if(filtered.length===0){
-    $('empty-state').style.display='block'; $('tscroll').style.display='none'; return;
+    $('empty-state').style.display='block'; $('tscroll').style.display='none'; $('pagination').innerHTML=''; return;
   }
   $('empty-state').style.display='none'; $('tscroll').style.display='block';
- 
+
+  // Pagination
+  const totalPages=Math.ceil(filtered.length/PAGE_SIZE);
+  if(currentPage>totalPages) currentPage=totalPages;
+  const pgStart=(currentPage-1)*PAGE_SIZE;
+  const paged=filtered.slice(pgStart,pgStart+PAGE_SIZE);
+  renderPagination(filtered.length,totalPages);
+
   const tbody=$('tbody'); tbody.innerHTML='';
-  filtered.forEach(bet=>{
+  paged.forEach(bet=>{
     const tr=document.createElement('tr');
     const pc=bet.pnl>0?'var(--green)':bet.pnl<0?'var(--red)':'var(--text3)';
     const bc=bet.status==='win'?'bw':bet.status==='loss'?'bl':bet.status==='pending'?'bp':'bp';
@@ -1192,6 +1296,45 @@ function renderTable(){
   });
 }
  
+function renderPagination(total,totalPages){
+  const pg=$('pagination');
+  if(totalPages<=1){pg.innerHTML='';return;}
+  let html='<button class="pg-btn" id="pg-prev">&lt;</button>';
+  for(let i=1;i<=totalPages;i++){
+    if(totalPages>7&&i>2&&i<totalPages-1&&Math.abs(i-currentPage)>1){
+      if(html.slice(-3)!=='...') html+='<span class="pg-info">...</span>';
+      continue;
+    }
+    html+=`<button class="pg-btn${i===currentPage?' active':''}" data-pg="${i}">${i}</button>`;
+  }
+  html+=`<button class="pg-btn" id="pg-next">&gt;</button>`;
+  html+=`<span class="pg-info">${total} paris</span>`;
+  pg.innerHTML=html;
+  pg.querySelectorAll('[data-pg]').forEach(b=>b.addEventListener('click',()=>{currentPage=+b.dataset.pg;renderTable();}));
+  const prev=pg.querySelector('#pg-prev'), next=pg.querySelector('#pg-next');
+  prev.disabled=currentPage===1; next.disabled=currentPage===totalPages;
+  prev.addEventListener('click',()=>{if(currentPage>1){currentPage--;renderTable();}});
+  next.addEventListener('click',()=>{if(currentPage<totalPages){currentPage++;renderTable();}});
+}
+
+function setDateFilter(from,to){
+  dateFrom=from; dateTo=to; currentPage=1; renderTable();
+  // Update active state
+  ['df-all','df-week','df-month'].forEach(id=>$(id).classList.remove('active'));
+  $('df-from').value=from||''; $('df-to').value=to||'';
+}
+
+async function deleteAccount(){
+  if(!user) return;
+  // Delete all bets
+  await fetch(SUPA_URL+'/rest/v1/paris?user_name=eq.'+encodeURIComponent(user.name),{method:'DELETE',headers:SUPA_HEADERS});
+  // Delete user
+  await fetch(SUPA_URL+'/rest/v1/users?username=eq.'+encodeURIComponent(user.name),{method:'DELETE',headers:SUPA_HEADERS});
+  try{localStorage.removeItem('bt_session');}catch{}
+  allBets=[]; user=null;
+  $('pg-app').style.display='none'; $('pg-onboard').style.display='flex';
+}
+
 // ── MODAL ──────────────────────────────────────────────────────
 function toggleFreebet(){
   isFreebet=!isFreebet;
@@ -1310,7 +1453,13 @@ function onStatusChange(){
     autoCalcGain();
   }
 }
-function closeModal(){ $('modal').classList.remove('open'); editingId=null; }
+function closeModal(){ $('modal').classList.remove('open'); editingId=null; modalDirty=false; }
+function tryCloseModal(){
+  if(modalDirty){
+    if(!confirm('Tu as des modifications non enregistrées. Quitter ?')) return;
+  }
+  closeModal();
+}
  
 async function submitBet(){
   const stake=parseFloat($('f-stake').value);
@@ -1439,10 +1588,11 @@ async function changePassword(){
   if(!oldP||!newP){errEl.textContent='Remplis tous les champs.';errEl.classList.add('show');return;}
   if(newP.length<6){errEl.textContent='Min. 6 caractères.';errEl.classList.add('show');return;}
   if(newP!==newP2){errEl.textContent='Les mots de passe ne correspondent pas.';errEl.classList.add('show');return;}
-  // Verify old password
+  // Verify old password (PBKDF2 or legacy)
   const oldHash=await hashPassword(oldP);
+  const oldHashLegacy=await hashPasswordLegacy(oldP);
   const dbUser=await sbGetUser(user.name);
-  if(!dbUser||dbUser.password_hash!==oldHash){errEl.textContent='Mot de passe actuel incorrect.';errEl.classList.add('show');return;}
+  if(!dbUser||(dbUser.password_hash!==oldHash&&dbUser.password_hash!==oldHashLegacy)){errEl.textContent='Mot de passe actuel incorrect.';errEl.classList.add('show');return;}
   // Update
   const newHash=await hashPassword(newP);
   await fetch(SUPA_URL+'/rest/v1/users?username=eq.'+encodeURIComponent(user.name),{method:'PATCH',headers:SUPA_HEADERS,body:JSON.stringify({password_hash:newHash})});
