@@ -73,13 +73,7 @@ export default function BetTable({ bets, onEdit, onDelete, onAdd }) {
 
   return (
     <>
-      <div className="sec-header">
-        <div className="sec-title">Historique des paris</div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button className="export-btn" onClick={() => exportCSV(bets)}>Export CSV</button>
-          <button className="btn-primary btn-sm" onClick={onAdd}>+ Nouveau pari</button>
-        </div>
-      </div>
+      <div className="sec-title" style={{ marginBottom: '1rem' }}>Historique des paris</div>
 
       <div className="table-toolbar">
         <div className="search-wrap">
@@ -97,6 +91,10 @@ export default function BetTable({ bets, onEdit, onDelete, onAdd }) {
           <input type="date" value={dateFrom} onChange={e => { setDateFrom(e.target.value); setPage(1); }} />
           <input type="date" value={dateTo} onChange={e => { setDateTo(e.target.value); setPage(1); }} />
           {(dateFrom || dateTo) && <button className="fbtn" onClick={clearDates}>✕</button>}
+        </div>
+        <div className="toolbar-actions">
+          <button className="export-btn" onClick={() => exportCSV(bets)}>Export CSV</button>
+          <button className="btn-primary btn-sm" onClick={onAdd}>+ Nouveau pari</button>
         </div>
       </div>
 
