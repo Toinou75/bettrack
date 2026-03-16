@@ -141,10 +141,20 @@ export default function BetTable({ bets, onEdit, onDelete, onAdd }) {
                       {b.match}
                       {legs && <span className="combo-badge">Combiné</span>}
                       {b.is_freebet && <span className="fb-badge">FREE</span>}
-                      {legs && <div className="td-legs">{legs.map(l => l.match).join(' • ')}</div>}
+                      {legs && <div className="td-legs">{legs.map(l => l.bet_type ? `${l.match} (${l.bet_type})` : l.match).join(' • ')}</div>}
                     </td>
-                    <td><span className="sbadge">{b.sport}</span></td>
-                    <td>{b.bet_type ? <span className="sbadge">{b.bet_type}</span> : '—'}</td>
+                    <td>
+                      {legs
+                        ? [...new Set(legs.map(l => l.sport).filter(Boolean))].map(s => <span key={s} className="sbadge">{s}</span>)
+                        : <span className="sbadge">{b.sport}</span>}
+                    </td>
+                    <td>
+                      {legs
+                        ? (legs.some(l => l.bet_type)
+                          ? legs.filter(l => l.bet_type).map((l, i) => <span key={i} className="sbadge">{l.bet_type}</span>)
+                          : '—')
+                        : (b.bet_type ? <span className="sbadge">{b.bet_type}</span> : '—')}
+                    </td>
                     <td><span className="sbadge">{b.bookmaker}</span></td>
                     <td>{b.stake.toFixed(2)} €</td>
                     <td>{b.odds ? parseFloat(b.odds.toFixed(2)) : '—'}</td>

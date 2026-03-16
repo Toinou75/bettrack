@@ -86,11 +86,14 @@ export default function BetModal({ open, bet, onClose, onSubmit }) {
     else if (status === 'loss') finalPnl = isFreebet ? 0 : -stakeNum;
     if (isFreebet && finalPnl < 0) finalPnl = 0;
 
+    const finalSport = betType === 'combi' ? (legs[0]?.sport || sport) : sport;
+    const finalBetType = betType === 'combi' ? null : (marketType || null);
+
     onSubmit({
       user_name: user.name,
       match: finalMatch,
-      sport,
-      bet_type: marketType || null,
+      sport: finalSport,
+      bet_type: finalBetType,
       bookmaker,
       stake: stakeNum,
       odds: finalOdds,
@@ -174,6 +177,8 @@ export default function BetModal({ open, bet, onClose, onSubmit }) {
             </div>
           )}
 
+          {betType === 'simple' && (
+          <>
           <div className="form-field">
             <label>Sport</label>
             <select value={sport} onChange={e => { setSport(e.target.value); setMarketType(''); markDirty(); }}>
@@ -181,7 +186,6 @@ export default function BetModal({ open, bet, onClose, onSubmit }) {
             </select>
           </div>
 
-          {betType === 'simple' && (
           <div className="form-field">
             <label>Type de pari</label>
             <select value={marketType} onChange={e => { setMarketType(e.target.value); markDirty(); }}>
@@ -189,6 +193,7 @@ export default function BetModal({ open, bet, onClose, onSubmit }) {
               {(BET_TYPES_BY_SPORT[sport] || BET_TYPES_BY_SPORT.Autre).map(t => <option key={t} value={t}>{t}</option>)}
             </select>
           </div>
+          </>
           )}
 
           <div className="form-field">
