@@ -1,9 +1,17 @@
 import { createClient } from '@supabase/supabase-js';
+import { toast } from '../components/Toast';
 
-const SUPA_URL = 'https://hshqabsxouiqpljtqmqr.supabase.co';
-const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhzaHFhYnN4b3VpcXBsanRxbXFyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1ODMwMjIsImV4cCI6MjA4OTE1OTAyMn0.74Gy_Bu09iWKFqRSKMmCirPVpskncZ0qfVrPzkPdj94';
+const SUPA_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPA_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 export const supabase = createClient(SUPA_URL, SUPA_KEY);
+
+function handleError(error, context) {
+  if (error) {
+    console.error(`[Supabase] ${context}:`, error.message);
+    toast.error(`Erreur : ${context}`);
+  }
+}
 
 // Colonnes optionnelles (fallback si pas encore migrées)
 const OPT_COLS = ['is_freebet', 'closing_odds'];
@@ -24,19 +32,21 @@ export async function selectBets(filter = '') {
 }
 
 export async function selectUserBets(username) {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('paris')
     .select('*')
     .eq('user_name', username)
     .order('created_at', { ascending: false });
+  handleError(error, 'Chargement des paris');
   return data || [];
 }
 
 export async function selectAllBets() {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('paris')
     .select('*')
     .order('created_at', { ascending: false });
+  handleError(error, 'Chargement du classement');
   return data || [];
 }
 
@@ -44,9 +54,11 @@ export async function insertBet(row) {
   const { data, error } = await supabase.from('paris').insert(row).select();
   if (error && error.code === '42703') {
     const clean = stripOptCols(row, error.message);
-    const { data: d2 } = await supabase.from('paris').insert(clean).select();
+    const { data: d2, error: e2 } = await supabase.from('paris').insert(clean).select();
+    handleError(e2, 'Ajout du pari');
     return d2?.[0] || null;
   }
+  handleError(error, 'Ajout du pari');
   return data?.[0] || null;
 }
 
@@ -54,14 +66,17 @@ export async function updateBet(id, row) {
   const { data, error } = await supabase.from('paris').update(row).eq('id', id).select();
   if (error && error.code === '42703') {
     const clean = stripOptCols(row, error.message);
-    const { data: d2 } = await supabase.from('paris').update(clean).eq('id', id).select();
+    const { data: d2, error: e2 } = await supabase.from('paris').update(clean).eq('id', id).select();
+    handleError(e2, 'Modification du pari');
     return d2?.[0] || null;
   }
+  handleError(error, 'Modification du pari');
   return data?.[0] || null;
 }
 
 export async function deleteBet(id) {
-  await supabase.from('paris').delete().eq('id', id);
+  const { error } = await supabase.from('paris').delete().eq('id', id);
+  handleError(error, 'Suppression du pari');
 }
 
 export async function getUser(username) {

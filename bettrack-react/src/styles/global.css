@@ -272,6 +272,9 @@ code{background:var(--bg4);padding:1px 6px;border-radius:4px;font-size:12px}
 .loading-bar{position:fixed;top:0;left:0;right:0;height:3px;background:var(--accent);z-index:999;animation:loadPulse 1.2s ease-in-out infinite}
 @keyframes loadPulse{0%{opacity:.3;transform:scaleX(.3);transform-origin:left}50%{opacity:1;transform:scaleX(.7)}100%{opacity:.3;transform:scaleX(.3);transform-origin:right}}
 
+/* ── TOAST ──────────────────────────────────────────── */
+@keyframes toastIn{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:translateX(0)}}
+
 /* ── RESPONSIVE ────────────────────────────────────── */
 @media(max-width:600px){
   .main{padding:1rem;padding-bottom:80px}.nav{padding:0 1rem}.nav-tabs{display:none}
