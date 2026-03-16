@@ -87,6 +87,17 @@ export default function BetModal({ open, bet, onClose, onSubmit }) {
   };
 
   const combiOdds = legs.reduce((a, l) => a * (parseFloat(l.odds) || 1), 1);
+
+  // Auto-calculate pnl when status is win
+  useEffect(() => {
+    if (status !== 'win') return;
+    const s = parseFloat(stake);
+    const o = betType === 'combi' ? (parseFloat(odds) || combiOdds) : parseFloat(odds);
+    if (s > 0 && o > 1) {
+      setPnl(((o - 1) * s).toFixed(2));
+    }
+  }, [status, stake, odds, legs, betType, combiOdds]);
+
   const mmCheck = checkMoneyManagement(parseFloat(stake), user?.bankroll || 0);
 
   const addLeg = () => { setLegs([...legs, { match: '', odds: '' }]); markDirty(); };
