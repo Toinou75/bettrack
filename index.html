@@ -251,8 +251,10 @@ code { background:var(--bg4); padding:1px 6px; border-radius:4px; font-size:12px
 .pg-info { font-size:12px; color:var(--text3); }
 
 /* DATE FILTER */
-.date-filter { display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
-.date-filter input { width:130px; font-size:12px; padding:5px 8px; }
+.date-filter { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+.date-filter input[type="date"] { width:140px; font-size:12px; padding:6px 10px; background:var(--bg3); border:1px solid var(--border2); border-radius:20px; color:var(--text2); font-family:'DM Sans',sans-serif; -webkit-appearance:none; appearance:none; }
+.date-filter input[type="date"]:focus { outline:2px solid var(--accent); border-color:var(--accent); }
+.date-filter input[type="date"]::-webkit-calendar-picker-indicator { filter:invert(0.6); cursor:pointer; }
 .date-filter .fbtn { white-space:nowrap; }
 
 /* BREAKDOWN TABLES */
