@@ -5,6 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>BetTrack</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2318181b'/%3E%3Crect x='2' y='2' width='28' height='28' rx='6' fill='%2322c55e' opacity='0.15'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='central' text-anchor='middle' font-family='Arial Black,Arial' font-weight='900' font-size='13' fill='%2322c55e' letter-spacing='-1'%3EBT%3C/text%3E%3C/svg%3E">
+<link rel="manifest" href="data:application/manifest+json,%7B%22name%22%3A%22BetTrack%22%2C%22short_name%22%3A%22BetTrack%22%2C%22start_url%22%3A%22%2F%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%230a0a0f%22%2C%22theme_color%22%3A%22%237c6bff%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22data%3Aimage%2Fsvg%2Bxml%2C%253Csvg%2520xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%2520viewBox%3D'0%25200%2520512%2520512'%253E%253Crect%2520width%3D'512'%2520height%3D'512'%2520rx%3D'128'%2520fill%3D'%252318181b'%2F%253E%253Ctext%2520x%3D'50%2525'%2520y%3D'50%2525'%2520dominant-baseline%3D'central'%2520text-anchor%3D'middle'%2520font-family%3D'Arial%2520Black'%2520font-weight%3D'900'%2520font-size%3D'200'%2520fill%3D'%25237c6bff'%253EBT%253C%2Ftext%253E%253C%2Fsvg%253E%22%2C%22sizes%22%3A%22512x512%22%2C%22type%22%3A%22image%2Fsvg%2Bxml%22%7D%5D%7D">
+<meta name="theme-color" content="#7c6bff">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -217,10 +221,32 @@ code { background:var(--bg4); padding:1px 6px; border-radius:4px; font-size:12px
 .confirm-sub { font-size:13px; color:var(--text2); margin-bottom:1.5rem; }
 .confirm-actions { display:flex; gap:10px; justify-content:center; }
  
+/* BREAKDOWN TABLES */
+.breakdown-section { margin-bottom:2rem; }
+.breakdown-title { font-family:'Syne',sans-serif; font-size:16px; font-weight:700; margin-bottom:10px; display:flex; align-items:center; gap:8px; }
+.breakdown-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:10px; }
+.bd-card { background:var(--bg2); border:1px solid var(--border); border-radius:10px; padding:1rem; }
+.bd-card-title { font-size:13px; font-weight:600; color:var(--text); margin-bottom:8px; }
+.bd-row { display:flex; justify-content:space-between; font-size:12px; margin-bottom:3px; }
+.bd-row span:first-child { color:var(--text3); }
+.bd-row span:last-child { font-weight:600; }
+.bd-bar { height:3px; background:var(--bg4); border-radius:2px; margin-top:6px; overflow:hidden; }
+.bd-bar-fill { height:100%; border-radius:2px; }
+
+/* MONEY MANAGEMENT ALERT */
+.mm-alert { background:rgba(255,77,106,.08); border:1px solid rgba(255,77,106,.3); border-radius:8px; padding:8px 12px; margin-top:8px; font-size:12px; color:var(--red); display:none; }
+.mm-alert.warn { display:block; }
+.mm-alert.ok { display:block; background:rgba(0,230,153,.06); border-color:rgba(0,230,153,.2); color:var(--green); }
+
+/* EXPORT BTN */
+.export-btn { font-size:12px; padding:5px 12px; border:1px solid var(--border2); border-radius:8px; background:transparent; color:var(--text2); cursor:pointer; }
+.export-btn:hover { background:var(--bg4); color:var(--text); }
+
 @media(max-width:600px){
   .main{padding:1rem} .nav{padding:0 1rem} .nav-tabs{display:none}
   .form2{grid-template-columns:1fr} .metrics{grid-template-columns:1fr 1fr}
   .lb-stats{display:none} .insights{grid-template-columns:1fr 1fr}
+  .breakdown-grid{grid-template-columns:1fr}
 }
 </style>
 </head>
@@ -325,6 +351,7 @@ code { background:var(--bg4); padding:1px 6px; border-radius:4px; font-size:12px
         <div class="mc a"><div class="mc-label">ROI</div><div class="mc-val" id="mv-roi">—</div></div>
         <div class="mc b"><div class="mc-label">Total misé</div><div class="mc-val" id="mv-staked">—</div></div>
         <div class="mc mc-fb"><div class="mc-label">Freebets 🎁</div><div class="mc-val" id="mv-fb-gain" style="color:var(--amber)">—</div><div class="mc-sub" id="mv-fb-count"></div></div>
+        <div class="mc g" id="mc-clv" style="display:none"><div class="mc-label">CLV moyen</div><div class="mc-val" id="mv-clv">—</div><div class="mc-sub" id="mv-clv-count"></div></div>
       </div>
  
       <!-- Insights : streak + meilleure/pire période -->
@@ -336,13 +363,28 @@ code { background:var(--bg4); padding:1px 6px; border-radius:4px; font-size:12px
         <div style="position:relative;width:100%;height:180px"><canvas id="the-chart"></canvas></div>
       </div>
  
+      <!-- Breakdown par bookmaker -->
+      <div class="breakdown-section" id="bd-book-wrap" style="display:none">
+        <div class="breakdown-title">Stats par bookmaker</div>
+        <div class="breakdown-grid" id="bd-book"></div>
+      </div>
+
+      <!-- Breakdown par sport -->
+      <div class="breakdown-section" id="bd-sport-wrap" style="display:none">
+        <div class="breakdown-title">Stats par sport</div>
+        <div class="breakdown-grid" id="bd-sport"></div>
+      </div>
+
       <!-- Table header -->
       <div class="sec-header">
         <div style="display:flex;align-items:center;gap:8px">
           <span class="sec-title">Mes paris</span>
           <span style="font-size:13px;color:var(--text3)" id="bet-count"></span>
         </div>
-        <button class="btn-primary" id="btn-add">+ Ajouter</button>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button class="export-btn" id="btn-export" title="Exporter en CSV">Exporter CSV</button>
+          <button class="btn-primary" id="btn-add">+ Ajouter</button>
+        </div>
       </div>
  
       <!-- Toolbar: search + filters -->
@@ -450,7 +492,7 @@ code { background:var(--bg4); padding:1px 6px; border-radius:4px; font-size:12px
       </div>
       <div>
         <label for="f-stake">Mise (€) *</label>
-        <input type="number" id="f-stake" placeholder="10" min="0" step="0.5" oninput="autoCalcGain()">
+        <input type="number" id="f-stake" placeholder="10" min="0" step="0.5" oninput="autoCalcGain();checkMoneyManagement()">
       </div>
       <div class="full">
         <label style="margin-bottom:6px">Type de mise</label>
@@ -475,6 +517,14 @@ code { background:var(--bg4); padding:1px 6px; border-radius:4px; font-size:12px
         <label for="f-pnl" id="f-pnl-label">Gain net (€)</label>
         <input type="number" id="f-pnl" placeholder="Ex: 15" step="0.5" min="0">
         <div id="f-pnl-hint" style="font-size:11px;color:var(--text3);margin-top:5px"></div>
+      </div>
+      <div id="field-clv">
+        <label for="f-clv">Cote de clôture (optionnel)</label>
+        <input type="number" id="f-clv" placeholder="Ex: 1.72" min="1" step="0.01">
+        <div style="font-size:10px;color:var(--text3);margin-top:3px">Cote au coup d'envoi pour mesurer ta value</div>
+      </div>
+      <div class="full">
+        <div class="mm-alert" id="mm-alert"></div>
       </div>
     </div>
     <div class="modal-actions">
@@ -509,14 +559,20 @@ async function sbSelect(filter='') {
   const r = await fetch(SUPA_URL+'/rest/v1/paris?order=created_at.desc'+filter, { headers: SUPA_HEADERS });
   return r.ok ? r.json() : [];
 }
+// Colonnes optionnelles (fallback si pas encore migrées en Supabase)
+const OPT_COLS=['is_freebet','closing_odds'];
+function stripOptCols(row,errMsg){
+  const clean={...row};
+  OPT_COLS.forEach(c=>{if(errMsg.includes(c))delete clean[c];});
+  return clean;
+}
 async function sbInsert(row) {
   const r = await fetch(SUPA_URL+'/rest/v1/paris', { method:'POST', headers:{...SUPA_HEADERS,'Prefer':'return=representation'}, body: JSON.stringify(row) });
   if(!r.ok && r.status===400) {
-    // Retry sans is_freebet seulement si la colonne n'existe pas encore
     const errMsg = await r.text();
-    if(errMsg.includes('is_freebet')) {
-      const {is_freebet,...rowFb}=row;
-      const r2 = await fetch(SUPA_URL+'/rest/v1/paris', { method:'POST', headers:{...SUPA_HEADERS,'Prefer':'return=representation'}, body: JSON.stringify(rowFb) });
+    const clean=stripOptCols(row,errMsg);
+    if(Object.keys(clean).length<Object.keys(row).length){
+      const r2 = await fetch(SUPA_URL+'/rest/v1/paris', { method:'POST', headers:{...SUPA_HEADERS,'Prefer':'return=representation'}, body: JSON.stringify(clean) });
       return r2.ok ? r2.json() : null;
     }
     return null;
@@ -527,9 +583,9 @@ async function sbUpdate(id, row) {
   const r = await fetch(SUPA_URL+'/rest/v1/paris?id=eq.'+id, { method:'PATCH', headers:{...SUPA_HEADERS,'Prefer':'return=representation'}, body: JSON.stringify(row) });
   if(!r.ok && r.status===400) {
     const errMsg = await r.text();
-    if(errMsg.includes('is_freebet')) {
-      const {is_freebet,...rowFb}=row;
-      const r2 = await fetch(SUPA_URL+'/rest/v1/paris?id=eq.'+id, { method:'PATCH', headers:{...SUPA_HEADERS,'Prefer':'return=representation'}, body: JSON.stringify(rowFb) });
+    const clean=stripOptCols(row,errMsg);
+    if(Object.keys(clean).length<Object.keys(row).length){
+      const r2 = await fetch(SUPA_URL+'/rest/v1/paris?id=eq.'+id, { method:'PATCH', headers:{...SUPA_HEADERS,'Prefer':'return=representation'}, body: JSON.stringify(clean) });
       return r2.ok ? r2.json() : null;
     }
     return null;
@@ -616,10 +672,31 @@ function computeStats(bets) {
   // Freebet stats
   const freebets = bets.filter(b=>b.is_freebet);
   const fbGain = freebets.filter(b=>b.status==='win').reduce((a,b)=>a+b.pnl,0);
+  // Breakdown par bookmaker
+  const byBook={};
+  closed.forEach(b=>{
+    if(!byBook[b.bookmaker]) byBook[b.bookmaker]={pnl:0,wins:0,losses:0,staked:0,count:0};
+    const bk=byBook[b.bookmaker]; bk.pnl+=b.pnl; bk.count++;
+    if(!b.is_freebet) bk.staked+=b.stake;
+    if(b.status==='win') bk.wins++; else bk.losses++;
+  });
+  // Breakdown par sport
+  const bySport={};
+  closed.forEach(b=>{
+    if(!bySport[b.sport]) bySport[b.sport]={pnl:0,wins:0,losses:0,staked:0,count:0};
+    const sp=bySport[b.sport]; sp.pnl+=b.pnl; sp.count++;
+    if(!b.is_freebet) sp.staked+=b.stake;
+    if(b.status==='win') sp.wins++; else sp.losses++;
+  });
+  // CLV (closing line value)
+  const clvBets = closed.filter(b=>b.closing_odds&&b.odds);
+  const avgCLV = clvBets.length ? clvBets.reduce((a,b)=>a+((b.odds/b.closing_odds)-1)*100,0)/clvBets.length : null;
+
   return { wins, losses, pnl, staked, pendingStaked, total:bets.length,
     rate: closed.length?((wins/closed.length)*100).toFixed(1):null,
     roi: staked>0?((pnl/staked)*100).toFixed(1):null,
-    fbCount: freebets.length, fbGain };
+    fbCount: freebets.length, fbGain,
+    byBook, bySport, avgCLV, clvCount:clvBets.length };
 }
  
 function computeInsights(bets) {
@@ -675,6 +752,7 @@ window.addEventListener('DOMContentLoaded',()=>{
   });
  
   $('btn-add').addEventListener('click',()=>openModal(null));
+  $('btn-export').addEventListener('click',exportCSV);
   $('modal-cancel').addEventListener('click',closeModal);
   $('modal-ok').addEventListener('click',submitBet);
   $('modal').addEventListener('click',e=>{if(e.target===$('modal'))closeModal();});
@@ -705,6 +783,11 @@ window.addEventListener('DOMContentLoaded',()=>{
   // Confirm dialog
   $('confirm-cancel').addEventListener('click',()=>$('confirm-overlay').classList.remove('open'));
   $('confirm-ok').addEventListener('click',()=>{if(confirmCb){confirmCb();confirmCb=null;}$('confirm-overlay').classList.remove('open');});
+
+  // PWA service worker
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.register('data:text/javascript,self.addEventListener("fetch",e=>e.respondWith(fetch(e.request).catch(()=>caches.match(e.request))))').catch(()=>{});
+  }
 });
  
 function switchAuthTab(tab){
@@ -813,16 +896,87 @@ function renderDash(){
   $('mv-fb-gain').textContent=s.fbCount>0?fmt(s.fbGain):'—';
   $('mv-fb-count').textContent=s.fbCount>0?s.fbCount+' freebet'+(s.fbCount>1?'s':'')+' joué'+(s.fbCount>1?'s':''):'';
  
+  // CLV metric
+  if(s.clvCount>0){
+    $('mc-clv').style.display='';
+    const clvPos=s.avgCLV>=0;
+    $('mc-clv').className='mc '+(clvPos?'g':'r');
+    $('mv-clv').className='mc-val '+(clvPos?'pos':'neg');
+    $('mv-clv').textContent=(s.avgCLV>=0?'+':'')+s.avgCLV.toFixed(1)+'%';
+    $('mv-clv-count').textContent=s.clvCount+' pari'+(s.clvCount>1?'s':'')+' avec CLV';
+  } else { $('mc-clv').style.display='none'; }
+
   // Insights
   renderInsights(bets);
- 
+
   // Chart
   renderChart(bets, {bankroll, initialBankroll: bankroll + s.pendingStaked - s.pnl});
- 
+
+  // Breakdowns
+  renderBreakdown('bd-book','bd-book-wrap',s.byBook);
+  renderBreakdown('bd-sport','bd-sport-wrap',s.bySport);
+
   // Table
   renderTable();
 }
  
+function renderBreakdown(gridId, wrapId, data){
+  const keys=Object.keys(data);
+  if(!keys.length){$(wrapId).style.display='none';return;}
+  $(wrapId).style.display='';
+  const maxPnl=Math.max(...keys.map(k=>Math.abs(data[k].pnl)),1);
+  $(gridId).innerHTML=keys.sort((a,b)=>data[b].pnl-data[a].pnl).map(k=>{
+    const d=data[k]; const p=d.pnl>=0; const rate=d.count?(d.wins/d.count*100).toFixed(0):0;
+    const roi=d.staked>0?(d.pnl/d.staked*100).toFixed(1):0;
+    return `<div class="bd-card">
+      <div class="bd-card-title">${esc(k)}</div>
+      <div class="bd-row"><span>P&L</span><span style="color:${p?'var(--green)':'var(--red)'}">${fmt(d.pnl)}</span></div>
+      <div class="bd-row"><span>W/L</span><span>${d.wins}/${d.losses}</span></div>
+      <div class="bd-row"><span>Taux</span><span>${rate}%</span></div>
+      <div class="bd-row"><span>ROI</span><span style="color:${parseFloat(roi)>=0?'var(--green)':'var(--red)'}">${roi}%</span></div>
+      <div class="bd-bar"><div class="bd-bar-fill" style="width:${Math.abs(d.pnl)/maxPnl*100}%;background:${p?'var(--green)':'var(--red)'}"></div></div>
+    </div>`;
+  }).join('');
+}
+
+function exportCSV(){
+  const bets=allBets;
+  if(!bets.length) return;
+  const headers=['Date','Match','Sport','Bookmaker','Mise','Cote','Statut','P&L','Freebet','Cote cloture'];
+  const rows=bets.map(b=>[
+    b.created_at?new Date(b.created_at).toLocaleDateString('fr-FR'):'',
+    '"'+b.match.replace(/"/g,'""')+'"',
+    b.sport, b.bookmaker, b.stake, b.odds||'',
+    b.status==='win'?'Gagné':b.status==='loss'?'Perdu':'En cours',
+    b.pnl, b.is_freebet?'Oui':'Non', b.closing_odds||''
+  ]);
+  const csv='\ufeff'+[headers,...rows].map(r=>r.join(';')).join('\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob); a.download='bettrack_export.csv';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function checkMoneyManagement(){
+  const el=$('mm-alert');
+  if(!el||!user) return;
+  const stake=parseFloat($('f-stake').value);
+  if(isNaN(stake)||stake<=0){el.className='mm-alert';return;}
+  const bankroll=user.bankroll;
+  if(bankroll<=0){el.className='mm-alert';return;}
+  const pct=(stake/bankroll)*100;
+  if(pct>10){
+    el.className='mm-alert warn';
+    el.textContent='\u26a0 Attention : tu mises '+pct.toFixed(1)+'% de ta bankroll. Les pros ne dépassent jamais 5%.';
+  } else if(pct>5){
+    el.className='mm-alert warn';
+    el.textContent='\u26a0 Mise élevée : '+pct.toFixed(1)+'% de ta bankroll. Prudence recommandée.';
+  } else {
+    el.className='mm-alert ok';
+    el.textContent='\u2705 Mise raisonnable : '+pct.toFixed(1)+'% de ta bankroll.';
+  }
+}
+
 function renderInsights(bets){
   const wrap=$('insights-wrap');
   const ins=computeInsights(bets);
@@ -1028,6 +1182,7 @@ function openModal(bet){
   $('f-stake').value=bet?bet.stake:'';
   $('f-status').value=bet?bet.status:'win';
   setFreebet(bet?bet.is_freebet:false);
+  $('f-clv').value=bet&&bet.closing_odds?bet.closing_odds:'';
   // For win: pnl stored is the gain; for loss: pnl=-stake, we don't show the field
   $('f-pnl').value=(bet&&bet.status==='win')?parseFloat(bet.pnl):''; 
   onStatusChange();
@@ -1098,7 +1253,8 @@ async function submitBet(){
   // Sécurité : un freebet ne peut jamais générer une pnl négative
   if(isFreebet && pnl < 0) pnl=0;
 
-  const row={user_name:user.name, match, sport:$('f-sport').value, bookmaker:$('f-book').value, stake, odds, pnl, status, legs:legs?JSON.stringify(legs):null, is_freebet:isFreebet};
+  const closingOdds=parseFloat($('f-clv').value)||null;
+  const row={user_name:user.name, match, sport:$('f-sport').value, bookmaker:$('f-book').value, stake, odds, pnl, status, legs:legs?JSON.stringify(legs):null, is_freebet:isFreebet, closing_odds:closingOdds};
  
   const currentEditingId = editingId;
   // Mémoriser l'ancien pari avant closeModal (qui reset editingId)
