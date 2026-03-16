@@ -52,8 +52,14 @@ export default function Dashboard() {
       {loading && <div className="loading-bar" />}
       <BankrollBar stats={stats} />
       <Metrics stats={stats} />
-      <Insights insights={insights} />
-      <BetChart bets={bets} />
+      <div className="dash-row">
+        <div className="dash-col-chart">
+          <BetChart bets={bets} />
+        </div>
+        <div className="dash-col-side">
+          <Insights insights={insights} />
+        </div>
+      </div>
       <Breakdowns stats={stats} />
       <BetTable bets={bets} onAdd={handleAdd} onEdit={handleEdit} onDelete={id => setDeleteId(id)} />
       <BetModal open={modalOpen} bet={editingBet} onClose={handleCloseModal} onSubmit={handleSubmit} />
