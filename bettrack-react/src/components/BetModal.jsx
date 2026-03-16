@@ -189,6 +189,17 @@ export default function BetModal({ open, bet, onClose, onSubmit }) {
             </div>
           )}
 
+          {status === 'pending' && (() => {
+            const s = parseFloat(stake);
+            const o = betType === 'combi' ? (parseFloat(odds) || combiOdds) : parseFloat(odds);
+            return (s > 0 && o > 1) ? (
+              <div className="form-field">
+                <label>Gain potentiel (€)</label>
+                <input type="text" value={`+${((o - 1) * s).toFixed(2)} €`} readOnly style={{ color: 'var(--green)', opacity: 0.8 }} />
+              </div>
+            ) : null;
+          })()}
+
           <div className="form-field">
             <label>Cote clôture (CLV)</label>
             <input type="number" value={closingOdds} onChange={e => { setClosingOdds(e.target.value); markDirty(); }} placeholder="1.80" step="0.01" />
