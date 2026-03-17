@@ -32,6 +32,8 @@ export default function BetModal({ open, bet, onClose, onSubmit }) {
   const [closingOdds, setClosingOdds] = useState('');
   const [legs, setLegs] = useState([{ match: '', odds: '' }]);
   const [dirty, setDirty] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   // Populate on edit
   useEffect(() => {
@@ -55,6 +57,8 @@ export default function BetModal({ open, bet, onClose, onSubmit }) {
       setPnl(''); setIsFreebet(false); setClosingOdds(''); setLegs([{ match: '', odds: '', sport: 'Football', bet_type: '' }]);
     }
     setDirty(false);
+    setLoading(false);
+    setError('');
   }, [bet, open]);
 
   const markDirty = useCallback(() => setDirty(true), []);
@@ -64,20 +68,21 @@ export default function BetModal({ open, bet, onClose, onSubmit }) {
     onClose();
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    setError('');
     const stakeNum = parseFloat(stake);
-    if (isNaN(stakeNum) || stakeNum < 0) return;
+    if (isNaN(stakeNum) || stakeNum <= 0) { setError('Mise invalide.'); return; }
 
     let finalMatch = match, finalLegs = null, finalOdds = null;
     if (betType === 'combi') {
       const validLegs = legs.filter(l => l.match.trim());
-      if (!validLegs.length) return;
+      if (!validLegs.length) { setError('Ajoute au moins une sélection.'); return; }
       finalMatch = validLegs.map(l => l.match).join(' + ');
       finalLegs = JSON.stringify(validLegs.map(l => ({ match: l.match.trim(), odds: parseFloat(l.odds) || null, sport: l.sport || null, bet_type: l.bet_type || null })));
       const manual = parseFloat(odds);
       finalOdds = (!isNaN(manual) && manual > 1) ? manual : validLegs.reduce((a, l) => a * (parseFloat(l.odds) || 1), 1);
     } else {
-      if (!match.trim()) return;
+      if (!match.trim()) { setError('Renseigne le match.'); return; }
       finalOdds = parseFloat(odds) || null;
     }
 
@@ -89,20 +94,27 @@ export default function BetModal({ open, bet, onClose, onSubmit }) {
     const finalSport = betType === 'combi' ? (legs[0]?.sport || sport) : sport;
     const finalBetType = betType === 'combi' ? null : (marketType || null);
 
-    onSubmit({
-      user_name: user.name,
-      match: finalMatch,
-      sport: finalSport,
-      bet_type: finalBetType,
-      bookmaker,
-      stake: stakeNum,
-      odds: finalOdds,
-      pnl: finalPnl,
-      status,
-      legs: finalLegs,
-      is_freebet: isFreebet,
-      closing_odds: parseFloat(closingOdds) || null,
-    });
+    setLoading(true);
+    try {
+      await onSubmit({
+        user_name: user.name,
+        match: finalMatch,
+        sport: finalSport,
+        bet_type: finalBetType,
+        bookmaker,
+        stake: stakeNum,
+        odds: finalOdds,
+        pnl: finalPnl,
+        status,
+        legs: finalLegs,
+        is_freebet: isFreebet,
+        closing_odds: parseFloat(closingOdds) || null,
+      });
+    } catch {
+      setError('Erreur lors de l\'enregistrement.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const combiOdds = legs.reduce((a, l) => a * (parseFloat(l.odds) || 1), 1);
@@ -269,9 +281,13 @@ export default function BetModal({ open, bet, onClose, onSubmit }) {
           </div>
         )}
 
+        {error && <div className="error-msg show" style={{ marginTop: '0.75rem' }}>{error}</div>}
+
         <div className="modal-actions">
-          <button onClick={handleClose}>Annuler</button>
-          <button className="btn-primary" onClick={handleSubmit}>{isEdit ? 'Modifier' : 'Ajouter'}</button>
+          <button onClick={handleClose} disabled={loading}>Annuler</button>
+          <button className="btn-primary" onClick={handleSubmit} disabled={loading}>
+            {loading ? 'Enregistrement...' : (isEdit ? 'Modifier' : 'Ajouter')}
+          </button>
         </div>
       </div>
     </div>
