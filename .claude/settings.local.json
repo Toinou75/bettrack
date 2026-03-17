@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(xxd)",
+      "Bash(where node:*)",
+      "Bash(cmd.exe /c \"where npm\")",
+      "Bash(cmd.exe /c \"where npx\")",
+      "Bash(export PATH=\"/c/Program Files/nodejs:$PATH\")",
+      "Bash(npm --version)",
+      "Bash(npx create-vite@latest . --template react -- --force)",
+      "Bash(npx create-vite@latest bettrack-react --template react)",
+      "Bash(npm install:*)",
+      "Bash(npx vite:*)",
+      "Bash(git rm:*)",
+      "Bash(npx vitest:*)"
+    ]
+  }
+}
